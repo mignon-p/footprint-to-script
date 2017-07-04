@@ -4,17 +4,22 @@ import System.Environment
 import System.IO
 import Text.PrettyPrint
 
-var :: String -> Statement ()
+var :: String -> Expr ()
 var s = Var (Ident s ()) ()
 
-call :: String -> [Statement ()] -> Statement ()
+call :: String -> [Expr ()] -> Expr ()
 call name args = Call (var name) args ()
 
-callMethod :: String -> String -> [Statement ()] -> Statement ()
+callMethod :: String -> String -> [Expr ()] -> Expr ()
 callMethod receiver method args = call dot args ()
   where dot = Dot (var receiver) (Ident method ()) ()
 
-assign :: String -> [Expr ()] -> Statement ()
+callMethSt :: String -> String -> [Expr ()] -> Statement ()
+callMethSt receiver method args =
+  StmtExpr (callMethod receiver method args) ()
+
+assign :: String -> Expr () -> Statement ()
+assign name exp = Assign [var name] exp ()
 
 imports :: [Statement ()]
 imports = [ FromImport fromModule fromItems () ]
