@@ -1,8 +1,22 @@
--- import Data.Kicad.PcbnewExpr
-import Data.Kicad.SExpr
+import Data.Kicad.PcbnewExpr
+import Language.Python.Common
 import System.Environment
 import System.IO
-import Text.PrettyPrint.Compact
+import Text.PrettyPrint
+
+type Ann = ()
+type ModuleA = Module Ann
+
+defAnn :: Ann
+defAnn = ()
+
+footprintToModule :: PcbnewExpr -> ModuleA
+footprintToModule pcb =
+  Module
+  [ FromImport 
+
+footprintToStr :: PcbnewExpr -> String
+footprintToStr = prettyText . footprintToModule
 
 main = do
   [file] <- getArgs
