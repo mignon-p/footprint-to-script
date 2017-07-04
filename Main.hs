@@ -15,8 +15,8 @@ initialize :: PcbnewModule -> [Statement ()]
 
 itemToStatement :: PcbnewItem -> Statement ()
 
-output :: String -> [Statement ()]
-output name = [ Assign asTo asExp (), StmtExpr stmtExpr () ]
+output :: [Statement ()]
+output = [ Assign asTo asExp (), StmtExpr stmtExpr () ]
   where
     asTo = [ Var (Ident "file_handler" ()) () ]
     asExp = Call callFun callArgs ()
@@ -26,13 +26,14 @@ output name = [ Assign asTo asExp (), StmtExpr stmtExpr () ]
     callFun2 = Dot dotExpr dotAttr ()
     dotExpr = Var (Ident "file_handler" ()) ()
     dotAttr = Ident "writeFile" ()
-    callArgs2 = [ Strings [name ++ ".kicad_mod"] () ]
+    callArgs2 = [ BinaryOp (Plus ()) leftOpArg rightOpArg () ]
+    leftOpArg = Var (Ident "footprint_name" ()) ()
+    rightOpArg = Strings [".kicad_mod"] ()
 
 footprintToModule :: PcbnewExpr -> Module ()
 footprintToModule pcb =
-  Module $ concat [imports, initialize pcb, items, output name]
+  Module $ concat [imports, initialize pcb, items, output]
   where items = map itemToStatement (pcbnewModuleItems pcb)
-        name = pcbnewModuleName pcb
 
 footprintToStr :: PcbnewExpr -> String
 footprintToStr = prettyText . footprintToModule
