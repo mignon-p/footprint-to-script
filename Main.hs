@@ -1,4 +1,5 @@
-import Data.Kicad.PcbnewExpr
+-- import Data.Kicad.PcbnewExpr
+import Data.Kicad.SExpr
 import System.Environment
 import System.IO
 import Text.PrettyPrint.Compact
