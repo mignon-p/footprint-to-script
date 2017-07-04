@@ -4,6 +4,18 @@ import System.Environment
 import System.IO
 import Text.PrettyPrint
 
+var :: String -> Statement ()
+var s = Var (Ident s ()) ()
+
+call :: String -> [Statement ()] -> Statement ()
+call name args = Call (var name) args ()
+
+callMethod :: String -> String -> [Statement ()] -> Statement ()
+callMethod receiver method args = call dot args ()
+  where dot = Dot (var receiver) (Ident method ()) ()
+
+assign :: String -> [Expr ()] -> Statement ()
+
 imports :: [Statement ()]
 imports = [ FromImport fromModule fromItems () ]
   where
