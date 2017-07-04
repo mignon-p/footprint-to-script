@@ -1,4 +1,5 @@
 import Data.Kicad.PcbnewExpr
+import Data.Maybe
 import Language.Python.Common
 import System.Environment
 import System.IO
@@ -6,6 +7,9 @@ import Text.PrettyPrint
 
 var :: String -> Expr ()
 var s = Var (Ident s ()) ()
+
+str :: String -> Expr ()
+str s = Strings [s] ()
 
 call :: String -> [Expr ()] -> Expr ()
 call name args = Call (var name) args ()
@@ -28,7 +32,19 @@ imports = [ FromImport fromModule fromItems () ]
     dotted = [ Ident "KicadModTree" () ]
     fromItems = ImportEverything ()
 
+attrToStatement :: PcbnewAttribute -> Statement ()
+attrToStatement (PcbnewDescr s) =
+  Just $ callMethSt "kicad_mod" "setDescription" [str s]
+attrToStatement (PcbnewTags s) =
+  Just $ callMethSt "kicad_mod" "setTags" [str s]
+attrToStatement _ = Nothing
+
 initialize :: PcbnewModule -> [Statement ()]
+initialize pcb = assignments ++ mapMaybe attrToStatement (pcbnewModuleAttrs pcb)
+  where assignments =
+          [ assign "footprint_name" (str (pcbNewModuleName pcb))
+          , assign "kicad_mod" (call "Footprint" (var "footprint_name"))
+          ]
 
 itemToStatement :: PcbnewItem -> Statement ()
 
