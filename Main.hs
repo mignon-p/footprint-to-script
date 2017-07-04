@@ -12,11 +12,17 @@ str :: String -> Expr ()
 str s = Strings [s] ()
 
 call :: String -> [Expr ()] -> Expr ()
-call name args = Call (var name) args ()
+call name args = Call (var name) (map ordinary args) ()
+  where ordinary exp = ArgExpr exp ()
+
+callKW :: String -> [(String, Expr ())] -> Expr ()
+callKW name args = Call (var name) (map kw args) ()
+  where kw (keyword, expr) = ArgKeyword (Ident keyword ()) expr ()
 
 callMethod :: String -> String -> [Expr ()] -> Expr ()
-callMethod receiver method args = call dot args ()
+callMethod receiver method args = Call dot (map ordinary args) ()
   where dot = Dot (var receiver) (Ident method ()) ()
+        ordinary exp = ArgExpr exp ()
 
 callMethSt :: String -> String -> [Expr ()] -> Statement ()
 callMethSt receiver method args =
