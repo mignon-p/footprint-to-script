@@ -4,16 +4,18 @@ import System.Environment
 import System.IO
 import Text.PrettyPrint
 
-type Ann = ()
-type ModuleA = Module Ann
+imports :: [Statement ()]
 
-defAnn :: Ann
-defAnn = ()
+initialize :: PcbnewModule -> [Statement ()]
 
-footprintToModule :: PcbnewExpr -> ModuleA
+itemToStatement :: PcbnewItem -> Statement ()
+
+output :: [Statement ()]
+
+footprintToModule :: PcbnewExpr -> Module ()
 footprintToModule pcb =
-  Module
-  [ FromImport 
+  Module $ concat [imports, initialize pcb, items, output]
+  where items = map itemToStatement (pcbnewModuleItems pcb)
 
 footprintToStr :: PcbnewExpr -> String
 footprintToStr = prettyText . footprintToModule
