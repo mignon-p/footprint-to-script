@@ -10,11 +10,17 @@ import Text.Printf
 
 variableize :: Char
             -> Expr ()
-            -> [(String, Expr ())]
-            -> (String, [(String, Expr ())])
+            -> [(Expr (), String)]
+            -> (String, [(Expr (), String)])
 variableize c exp vars =
-  let relevant = filter (\(x:_,_) -> c == x) vars
-      
+  let relevant = filter (\(_,x:_) -> c == x) vars
+      found = lookup exp relevant
+      largest = maximum (0 : map toNum relevant)
+      toNum (_, _:s) = read s :: Int
+      next = c : show (largest + 1)
+  in case found of
+    Just x -> (x, vars)
+    Nothing -> (next, (exp, next) : vars)
 
 escape :: String -> String
 escape s = concatMap e s
