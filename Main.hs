@@ -10,7 +10,7 @@ var :: String -> Expr ()
 var s = Var (Ident s ()) ()
 
 str :: String -> Expr ()
-str s = Strings [s] ()
+str s = Strings ["\"", s, "\""] ()
 
 flo :: Double -> Expr ()
 flo x = Float x (show x) ()
