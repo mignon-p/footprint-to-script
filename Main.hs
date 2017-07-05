@@ -47,7 +47,7 @@ str :: String -> Expr ()
 str s = Strings ["\"", escape s, "\""] ()
 
 flo :: Double -> Expr ()
-flo x = Float x (show x) ()
+flo x = Float x (printf "%f" x) ()
 
 vect :: V2Double -> Expr ()
 vect (x, y) = List [ flo x, flo y ] ()
