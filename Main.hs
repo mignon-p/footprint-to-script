@@ -15,7 +15,7 @@ flo :: Double -> Expr ()
 flo x = Float x (show x) ()
 
 vect :: V2Double -> Expr ()
-vect (x, y) = Tuple [ flo x, flo y ] ()
+vect (x, y) = List [ flo x, flo y ] ()
 
 boo :: Bool -> Expr ()
 boo b = Bool b ()
@@ -47,7 +47,7 @@ imports = [ FromImport fromModule fromItems () ]
     dotted = [ Ident "KicadModTree" () ]
     fromItems = ImportEverything ()
 
-attrToStatement :: PcbnewAttribute -> Statement ()
+attrToStatement :: PcbnewAttribute -> Maybe (Statement ())
 attrToStatement (PcbnewDescr s) =
   Just $ callMethSt "kicad_mod" "setDescription" [str s]
 attrToStatement (PcbnewTags s) =
@@ -67,6 +67,9 @@ apnd constructor args =
 
 pythag :: V2Double -> V2Double -> Double
 pythag = undefined -- TODO
+
+attrToPair :: PcbnewAttribute -> Maybe (String, Expr ())
+attrToPair = undefined -- TODO
 
 itemToStatement :: PcbnewItem -> Statement ()
 itemToStatement item@(PcbnewFpText {}) =
@@ -91,6 +94,32 @@ itemToStatement item@(PcbnewFpCircle {}) =
                 , ( "layer" , str (layerToStr (itemLayer item)) )
                 , ( "width" , flo (itemWidth item) )
                 ]
+itemToStatement item@(PcbnewFpArc {}) =
+  apnd "Arc" [ ( "center" , vect (itemStart item) )
+             , ( "start" , vect (itemEnd item) ) -- not sure about this
+             , ( "angle" , flo (fpArcAngle item) )
+             , ( "layer" , str (layerToStr (itemLayer item)) )
+             , ( "width" , flo (itemWidth item) )
+             ]
+itemToStatement item@(PcbnewFpPoly {}) =
+  apnd "PolygoneLine" [ ( "polygone" , List (map vect (fpPolyPts item)) () )
+                      , ( "layer" , str (layerToStr (itemLayer item)) )
+                      , ( "width" , flo (itemWidth item) )
+                      ]
+itemToStatement item@(PcbnewPad {}) =
+  apnd "Pad" $ [ ( "number" , str (padNumber item) )
+               , ( "type" , pType (padType item) )
+               , ( "shape" , pShape (padShape item) )
+               , ( "at" , vect (pcbnewAtPoint (itemAt item)) )
+               , ( "rotation" , flo (pcbnewAtOrientation (itemAt item)) )
+               , ( "size" , vect (itemSize item) )
+               , ( "offset" , )
+               , ( "drill" , )
+               , ( "solder_paste_margin_ratio" , )
+               , ( "layers" , List (map (str . layerToStr) (padLayers item)) () )
+               ] ++ mapMaybe attrToPair (padAttributes_ item)
+  where pType = undefined -- TODO
+        pShape = undefined -- TODO
 
 output :: [Statement ()]
 output = [ Assign asTo asExp (), StmtExpr stmtExpr () ]
