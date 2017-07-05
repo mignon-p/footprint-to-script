@@ -66,10 +66,19 @@ apnd constructor args =
   callMethSt "kicad_mod" "append" $ callKW constructor args
 
 pythag :: V2Double -> V2Double -> Double
-pythag = undefined -- TODO
+pythag (x1, y1) (x2, y2) = sqrt (dx * dx + dy * dy)
+  where dx = x2 - x1
+        dy = y2 - y1
 
 attrToPair :: PcbnewAttribute -> Maybe (String, Expr ())
-attrToPair = undefined -- TODO
+attrToPair (PcbnewDrill drill) =
+  case pcbNewDrillSize drill of
+    Nothing -> Nothing
+    Just v -> Just ("drill", vect v)
+attrToPair (PcbnewOffset off) = Just ("offset", vect off)
+attrToPair (PcbnewSolderPasteRatio rat) =
+  Just ("solder_paste_margin_ratio", flo rat)
+attrToPair _ = Nothing
 
 itemToStatement :: PcbnewItem -> Statement ()
 itemToStatement item@(PcbnewFpText {}) =
@@ -108,18 +117,13 @@ itemToStatement item@(PcbnewFpPoly {}) =
                       ]
 itemToStatement item@(PcbnewPad {}) =
   apnd "Pad" $ [ ( "number" , str (padNumber item) )
-               , ( "type" , pType (padType item) )
-               , ( "shape" , pShape (padShape item) )
+               , ( "type" , str (fpPadTypeToStr (padType item)) )
+               , ( "shape" , str (fpPadShapeToStr (padShape item)) )
                , ( "at" , vect (pcbnewAtPoint (itemAt item)) )
                , ( "rotation" , flo (pcbnewAtOrientation (itemAt item)) )
                , ( "size" , vect (itemSize item) )
-               , ( "offset" , )
-               , ( "drill" , )
-               , ( "solder_paste_margin_ratio" , )
                , ( "layers" , List (map (str . layerToStr) (padLayers item)) () )
                ] ++ mapMaybe attrToPair (padAttributes_ item)
-  where pType = undefined -- TODO
-        pShape = undefined -- TODO
 
 output :: [Statement ()]
 output = [ Assign asTo asExp (), StmtExpr stmtExpr () ]
