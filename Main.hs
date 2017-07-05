@@ -1,4 +1,4 @@
-import Data.Kicad.PcbnewExpr
+import Data.Kicad.PcbnewExpr hiding (pretty)
 import Data.Kicad.PcbnewExpr.PcbnewExpr
 import Data.Maybe
 import Language.Python.Common
@@ -152,7 +152,11 @@ footprintToModule pcb =
   where items = map itemToStatement (pcbnewModuleItems pcb)
 
 footprintToStr :: PcbnewModule -> String
-footprintToStr = prettyText . footprintToModule
+footprintToStr = renderStyle sty . pretty . footprintToModule
+  -- Unfortunately, language-python produces very long lines, despite
+  -- the lineLength setting:
+  -- https://github.com/bjpop/language-python/issues/3
+  where sty = style { lineLength = 78 }
 
 footprintToFile :: PcbnewModule -> FilePath -> IO ()
 footprintToFile pcb file = withFile file WriteMode $ \h -> do
