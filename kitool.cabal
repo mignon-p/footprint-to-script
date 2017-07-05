@@ -61,6 +61,7 @@ executable kitool
                      , kicad-data >= 0.4 && < 5
                      , language-python >= 0.5.4 && < 0.6
                      , pretty >= 1.1.1.1 && < 1.2
+                     , transformers >= 0.3 && < 0.6
 
   -- Directories containing source files.
   -- hs-source-dirs:

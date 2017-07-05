@@ -1,3 +1,4 @@
+import Control.Monad.Trans.State.Strict
 import Data.Kicad.PcbnewExpr hiding (pretty)
 import Data.Kicad.PcbnewExpr.PcbnewExpr
 import Data.Maybe
@@ -7,6 +8,8 @@ import System.Environment
 import System.IO
 import Text.PrettyPrint
 import Text.Printf
+
+type VarState = State [(Expr (), String)]
 
 variableize :: Char
             -> Expr ()
@@ -21,6 +24,13 @@ variableize c exp vars =
   in case found of
     Just x -> (x, vars)
     Nothing -> (next, (exp, next) : vars)
+
+vbz :: Char -> Expr () -> VarState (Expr ())
+vbz c exp = do
+  st <- get
+  let (name, st') = variableize c exp st
+  put st
+  return (var name)
 
 escape :: String -> String
 escape s = concatMap e s
@@ -90,9 +100,9 @@ initialize pcb = assignments ++ mapMaybe attrToStatement (pcbnewModuleAttrs pcb)
           , assign "kicad_mod" (call "Footprint" [(var "footprint_name")])
           ]
 
-apnd :: String -> [(String, Expr ())] -> Statement ()
+apnd :: String -> [(String, Expr ())] -> VarState (Statement ())
 apnd constructor args =
-  callMethSt "kicad_mod" "append" [callKW constructor args]
+  return $ callMethSt "kicad_mod" "append" [callKW constructor args]
 
 pythag :: V2Double -> V2Double -> Double
 pythag (x1, y1) (x2, y2) = sqrt (dx * dx + dy * dy)
@@ -109,8 +119,8 @@ attrToPair (PcbnewSolderPasteRatio rat) =
   Just ("solder_paste_margin_ratio", flo rat)
 attrToPair _ = Nothing
 
-itemToStatement :: PcbnewItem -> Statement ()
-itemToStatement item@(PcbnewFpText {}) =
+itemToStatement :: PcbnewItem -> VarState (Statement ())
+itemToStatement item@(PcbnewFpText {}) = do
   apnd "Text" [ ( "type" , str (fpTextTypeToStr (fpTextType item)) )
               , ( "text" , str (fpTextStr item) )
               , ( "at" , vect (pcbnewAtPoint (itemAt item)) )
@@ -120,31 +130,31 @@ itemToStatement item@(PcbnewFpText {}) =
               , ( "thickness" , flo (fpTextThickness item) )
               , ( "hide" , boo (fpTextHide item) )
               ]
-itemToStatement item@(PcbnewFpLine {}) =
+itemToStatement item@(PcbnewFpLine {}) = do
   apnd "Line" [ ( "start" , vect (itemStart item) )
               , ( "end" , vect (itemEnd item) )
               , ( "layer" , str (layerToStr (itemLayer item)) )
               , ( "width" , flo (itemWidth item) )
               ]
-itemToStatement item@(PcbnewFpCircle {}) =
+itemToStatement item@(PcbnewFpCircle {}) = do
   apnd "Circle" [ ( "center" , vect (itemStart item) )
                 , ( "radius" , flo (pythag (itemStart item) (itemEnd item)) )
                 , ( "layer" , str (layerToStr (itemLayer item)) )
                 , ( "width" , flo (itemWidth item) )
                 ]
-itemToStatement item@(PcbnewFpArc {}) =
+itemToStatement item@(PcbnewFpArc {}) = do
   apnd "Arc" [ ( "center" , vect (itemStart item) )
              , ( "start" , vect (itemEnd item) ) -- not sure about this
              , ( "angle" , flo (fpArcAngle item) )
              , ( "layer" , str (layerToStr (itemLayer item)) )
              , ( "width" , flo (itemWidth item) )
              ]
-itemToStatement item@(PcbnewFpPoly {}) =
+itemToStatement item@(PcbnewFpPoly {}) = do
   apnd "PolygoneLine" [ ( "polygone" , List (map vect (fpPolyPts item)) () )
                       , ( "layer" , str (layerToStr (itemLayer item)) )
                       , ( "width" , flo (itemWidth item) )
                       ]
-itemToStatement item@(PcbnewPad {}) =
+itemToStatement item@(PcbnewPad {}) = do
   apnd "Pad" $ [ ( "number" , str (padNumber item) )
                , ( "type" , str (fpPadTypeToStr (padType item)) )
                , ( "shape" , str (fpPadShapeToStr (padShape item)) )
@@ -153,6 +163,13 @@ itemToStatement item@(PcbnewPad {}) =
                , ( "size" , vect (itemSize item) )
                , ( "layers" , List (map (str . layerToStr) (padLayers item)) () )
                ] ++ mapMaybe attrToPair (padAttributes_ item)
+
+itemsToStatements :: [PcbnewItem] -> [Statement ()]
+itemsToStatements items = assignVars vars ++ [blankLine] ++ stmts
+  where (stmts, vars) = runState go []
+        go = mapM itemToStatement items
+        assignVars = map assignVar
+        assignVar (expr, name) = assign name expr
 
 output :: [Statement ()]
 output = [ assign asTo asExp, stmtExpr ]
@@ -168,7 +185,7 @@ output = [ assign asTo asExp, stmtExpr ]
 footprintToModule :: PcbnewModule -> Module ()
 footprintToModule pcb =
   Module $ intercalate [blankLine] [imports, initialize pcb, items, output]
-  where items = map itemToStatement (pcbnewModuleItems pcb)
+  where items = itemsToStatements (pcbnewModuleItems pcb)
 
 footprintToStr :: PcbnewModule -> String
 footprintToStr = renderStyle sty . pretty . footprintToModule
