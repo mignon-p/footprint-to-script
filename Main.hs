@@ -190,10 +190,11 @@ itemToStatement item@(PcbnewPad {}) = do
 itemsToStatements :: [PcbnewItem] -> [Statement ()]
 itemsToStatements items = assignVars vars' ++ [blankLine] ++ stmts
   where (stmts, vars) = runState go []
-        vars' = sortBy (comparing snd) vars
+        vars' = sortBy (comparing cmp) vars
         go = mapM itemToStatement items
         assignVars = map assignVar
         assignVar (expr, name) = assign name expr
+        cmp (_, c:n) = (c, read n :: Int)
 
 output :: [Statement ()]
 output = [ assign asTo asExp, stmtExpr ]
