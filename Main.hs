@@ -154,11 +154,17 @@ footprintToModule pcb =
 footprintToStr :: PcbnewModule -> String
 footprintToStr = prettyText . footprintToModule
 
+footprintToFile :: PcbnewModule -> FilePath -> IO ()
+footprintToFile pcb file = withFile file WriteMode $ \h -> do
+  hPutStrLn h "#!/usr/bin/env python3"
+  hPutStrLn h ""
+  hPutStrLn h $ footprintToStr pcb
+
 main = do
-  [file] <- getArgs
+  [file, out] <- getArgs
   contents <- readFile file
   let eth = parse contents
   case eth of
     Left s -> putStrLn s
-    Right (PcbnewExprModule x) -> putStrLn $ footprintToStr x
+    Right (PcbnewExprModule x) -> footprintToFile x out
     _ -> putStrLn "not a module"
