@@ -145,6 +145,12 @@ pShape Rect = pad "SHAPE_RECT"
 pShape Trapezoid = pad "SHAPE_TRAPEZE"
 pShape x = str (fpPadShapeToStr x)
 
+layers :: [String] -> PcbnewPadTypeT -> Expr ()
+layers ["F.Cu", "F.Mask", "F.Paste"] _ = pad "LAYERS_SMT"
+layers ["*.Cu", "*.Mask"] NPThruHole = pad "LAYERS_NPTH"
+layers ["*.Cu", "*.Mask"] _ = pad "LAYERS_THT"
+layers ls _ = List (map str ls) ()
+
 itemToStatement :: PcbnewItem -> VarState (Statement ())
 itemToStatement item@(PcbnewFpText {}) = do
   at <- vbzXY (pcbnewAtPoint (itemAt item))
@@ -204,7 +210,7 @@ itemToStatement item@(PcbnewPad {}) = do
                , ( "at" , at )
                , ( "rotation" , flo (pcbnewAtOrientation (itemAt item)) )
                , ( "size" , s )
-               , ( "layers" , List (map (str . layerToStr) (padLayers item)) () )
+               , ( "layers" , layers (map layerToStr (padLayers item)) (padType item) )
                ] ++ catMaybes attrs
 
 itemsToStatements :: [PcbnewItem] -> [Statement ()]
