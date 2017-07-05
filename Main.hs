@@ -5,12 +5,21 @@ import Language.Python.Common
 import System.Environment
 import System.IO
 import Text.PrettyPrint
+import Text.Printf
+
+escape :: String -> String
+escape s = concatMap e s
+  where e '\"' = "\\\""
+        e '\\' = "\\\\"
+        e x
+          | x < ' ' = printf "\\%03o" x
+          | otherwise = [x]
 
 var :: String -> Expr ()
 var s = Var (Ident s ()) ()
 
 str :: String -> Expr ()
-str s = Strings ["\"", s, "\""] ()
+str s = Strings ["\"", escape s, "\""] ()
 
 flo :: Double -> Expr ()
 flo x = Float x (show x) ()
