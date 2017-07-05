@@ -120,20 +120,20 @@ attrToPair (PcbnewSolderPasteRatio rat) =
   Just ("solder_paste_margin_ratio", flo rat)
 attrToPair _ = Nothing
 
-vbzAt :: PcbnewItem -> VarState (Expr ())
-vbzAt item = do
-  let (x, y) = pcbnewAtPoint (itemAt item)
+vbzXY :: V2Double -> VarState (Expr ())
+vbzXY (x, y) = do
   x' <- vbz 'x' $ flo x
   y' <- vbz 'y' $ flo y
   return $ List [x', y'] ()
 
 itemToStatement :: PcbnewItem -> VarState (Statement ())
 itemToStatement item@(PcbnewFpText {}) = do
+  at <- vbzXY (pcbnewAtPoint (itemAt item))
   s <- vbz 's' $ vect (itemSize item)
   w <- vbz 'w' $ flo (fpTextThickness item)
   apnd "Text" [ ( "type" , str (fpTextTypeToStr (fpTextType item)) )
               , ( "text" , str (fpTextStr item) )
-              , ( "at" , vect (pcbnewAtPoint (itemAt item)) )
+              , ( "at" , at )
               , ( "rotation" , flo (pcbnewAtOrientation (itemAt item)) )
               , ( "layer" , str (layerToStr (itemLayer item)) )
               , ( "size" , s )
@@ -141,39 +141,47 @@ itemToStatement item@(PcbnewFpText {}) = do
               , ( "hide" , boo (fpTextHide item) )
               ]
 itemToStatement item@(PcbnewFpLine {}) = do
+  start <- vbzXY (itemStart item)
+  end <- vbzXY (itemEnd item)
   w <- vbz 'w' $ flo (itemWidth item)
-  apnd "Line" [ ( "start" , vect (itemStart item) )
-              , ( "end" , vect (itemEnd item) )
+  apnd "Line" [ ( "start" , start )
+              , ( "end" , end )
               , ( "layer" , str (layerToStr (itemLayer item)) )
               , ( "width" , w )
               ]
 itemToStatement item@(PcbnewFpCircle {}) = do
+  center <- vbzXY (itemStart item)
+  r <- vbz 'r' $ flo (pythag (itemStart item) (itemEnd item))
   w <- vbz 'w' $ flo (itemWidth item)
-  apnd "Circle" [ ( "center" , vect (itemStart item) )
-                , ( "radius" , flo (pythag (itemStart item) (itemEnd item)) )
+  apnd "Circle" [ ( "center" , center )
+                , ( "radius" , r )
                 , ( "layer" , str (layerToStr (itemLayer item)) )
                 , ( "width" , w )
                 ]
 itemToStatement item@(PcbnewFpArc {}) = do
+  center <- vbzXY (itemStart item)
+  start <- vbzXY (itemEnd item) -- not sure about this
   w <- vbz 'w' $ flo (itemWidth item)
-  apnd "Arc" [ ( "center" , vect (itemStart item) )
-             , ( "start" , vect (itemEnd item) ) -- not sure about this
+  apnd "Arc" [ ( "center" , center )
+             , ( "start" , start )
              , ( "angle" , flo (fpArcAngle item) )
              , ( "layer" , str (layerToStr (itemLayer item)) )
              , ( "width" , w )
              ]
 itemToStatement item@(PcbnewFpPoly {}) = do
+  poly <- mapM vbzXY (fpPolyPts item)
   w <- vbz 'w' $ flo (itemWidth item)
-  apnd "PolygoneLine" [ ( "polygone" , List (map vect (fpPolyPts item)) () )
+  apnd "PolygoneLine" [ ( "polygone" , List poly () )
                       , ( "layer" , str (layerToStr (itemLayer item)) )
                       , ( "width" , w )
                       ]
 itemToStatement item@(PcbnewPad {}) = do
+  at <- vbzXY (pcbnewAtPoint (itemAt item))
   s <- vbz 's' $ vect (itemSize item)
   apnd "Pad" $ [ ( "number" , str (padNumber item) )
                , ( "type" , str (fpPadTypeToStr (padType item)) )
                , ( "shape" , str (fpPadShapeToStr (padShape item)) )
-               , ( "at" , vect (pcbnewAtPoint (itemAt item)) )
+               , ( "at" , at )
                , ( "rotation" , flo (pcbnewAtOrientation (itemAt item)) )
                , ( "size" , s )
                , ( "layers" , List (map (str . layerToStr) (padLayers item)) () )
