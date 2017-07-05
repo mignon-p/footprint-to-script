@@ -1,4 +1,5 @@
 import Data.Kicad.PcbnewExpr
+import Data.Kicad.PcbnewExpr.PcbnewExpr
 import Data.Maybe
 import Language.Python.Common
 import System.Environment
@@ -57,13 +58,13 @@ attrToStatement _ = Nothing
 initialize :: PcbnewModule -> [Statement ()]
 initialize pcb = assignments ++ mapMaybe attrToStatement (pcbnewModuleAttrs pcb)
   where assignments =
-          [ assign "footprint_name" (str (pcbNewModuleName pcb))
-          , assign "kicad_mod" (call "Footprint" (var "footprint_name"))
+          [ assign "footprint_name" (str (pcbnewModuleName pcb))
+          , assign "kicad_mod" (call "Footprint" [(var "footprint_name")])
           ]
 
 apnd :: String -> [(String, Expr ())] -> Statement ()
 apnd constructor args =
-  callMethSt "kicad_mod" "append" $ callKW constructor args
+  callMethSt "kicad_mod" "append" [callKW constructor args]
 
 pythag :: V2Double -> V2Double -> Double
 pythag (x1, y1) (x2, y2) = sqrt (dx * dx + dy * dy)
@@ -72,7 +73,7 @@ pythag (x1, y1) (x2, y2) = sqrt (dx * dx + dy * dy)
 
 attrToPair :: PcbnewAttribute -> Maybe (String, Expr ())
 attrToPair (PcbnewDrill drill) =
-  case pcbNewDrillSize drill of
+  case pcbnewDrillSize drill of
     Nothing -> Nothing
     Just v -> Just ("drill", vect v)
 attrToPair (PcbnewOffset off) = Just ("offset", vect off)
@@ -83,7 +84,7 @@ attrToPair _ = Nothing
 itemToStatement :: PcbnewItem -> Statement ()
 itemToStatement item@(PcbnewFpText {}) =
   apnd "Text" [ ( "type" , str (fpTextTypeToStr (fpTextType item)) )
-              , ( "text" , fpTextStr item )
+              , ( "text" , str (fpTextStr item) )
               , ( "at" , vect (pcbnewAtPoint (itemAt item)) )
               , ( "rotation" , flo (pcbnewAtOrientation (itemAt item)) )
               , ( "layer" , str (layerToStr (itemLayer item)) )
@@ -126,26 +127,22 @@ itemToStatement item@(PcbnewPad {}) =
                ] ++ mapMaybe attrToPair (padAttributes_ item)
 
 output :: [Statement ()]
-output = [ Assign asTo asExp (), StmtExpr stmtExpr () ]
+output = [ assign asTo asExp, stmtExpr ]
   where
-    asTo = [ Var (Ident "file_handler" ()) () ]
-    asExp = Call callFun callArgs ()
-    callFun = Var (Ident "KicadFileHandler" ()) ()
-    callArgs = [ Var (Ident "kicad_mod" ()) () ]
-    stmtExpr = Call callFun2 callArgs2 ()
-    callFun2 = Dot dotExpr dotAttr ()
-    dotExpr = Var (Ident "file_handler" ()) ()
-    dotAttr = Ident "writeFile" ()
+    asTo = "file_handler"
+    asExp = call "KicadFileHandler" callArgs
+    callArgs = [ var "kicad_mod" ]
+    stmtExpr = callMethSt "file_handler" "writeFile" callArgs2
     callArgs2 = [ BinaryOp (Plus ()) leftOpArg rightOpArg () ]
-    leftOpArg = Var (Ident "footprint_name" ()) ()
-    rightOpArg = Strings [".kicad_mod"] ()
+    leftOpArg = var "footprint_name"
+    rightOpArg = str ".kicad_mod"
 
-footprintToModule :: PcbnewExpr -> Module ()
+footprintToModule :: PcbnewModule -> Module ()
 footprintToModule pcb =
   Module $ concat [imports, initialize pcb, items, output]
   where items = map itemToStatement (pcbnewModuleItems pcb)
 
-footprintToStr :: PcbnewExpr -> String
+footprintToStr :: PcbnewModule -> String
 footprintToStr = prettyText . footprintToModule
 
 main = do
@@ -154,4 +151,5 @@ main = do
   let eth = parse contents
   case eth of
     Left s -> putStrLn s
-    Right x -> putStrLn $ render 0.8 80 $ pretty x
+    Right (PcbnewExprModule x) -> putStrLn $ footprintToStr x
+    _ -> putStrLn "not a module"

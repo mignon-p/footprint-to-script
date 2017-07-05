@@ -59,7 +59,8 @@ executable kitool
   -- Other library packages from which modules are imported.
   build-depends:       base >= 4.7 && < 5
                      , kicad-data >= 0.4 && < 5
-                     , pretty-compact >= 1.0 && < 2
+                     , language-python >= 0.5.4 && < 0.6
+                     , pretty >= 1.1.1.1 && < 1.2
 
   -- Directories containing source files.
   -- hs-source-dirs:
