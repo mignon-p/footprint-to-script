@@ -110,15 +110,17 @@ pythag (x1, y1) (x2, y2) = sqrt (dx * dx + dy * dy)
   where dx = x2 - x1
         dy = y2 - y1
 
-attrToPair :: PcbnewAttribute -> Maybe (String, Expr ())
-attrToPair (PcbnewDrill drill) =
+attrToPair :: PcbnewAttribute -> VarState (Maybe (String, Expr ()))
+attrToPair (PcbnewDrill drill) = do
   case pcbnewDrillSize drill of
-    Nothing -> Nothing
-    Just v -> Just ("drill", vect v)
-attrToPair (PcbnewOffset off) = Just ("offset", vect off)
+    Nothing -> return Nothing
+    Just v -> do
+      d <- vbz 'd' (vect v)
+      return $ Just ("drill", d)
+attrToPair (PcbnewOffset off) = return $ Just ("offset", vect off)
 attrToPair (PcbnewSolderPasteRatio rat) =
-  Just ("solder_paste_margin_ratio", flo rat)
-attrToPair _ = Nothing
+  return $ Just ("solder_paste_margin_ratio", flo rat)
+attrToPair _ = return Nothing
 
 vbzXY :: V2Double -> VarState (Expr ())
 vbzXY (x, y) = do
@@ -178,6 +180,7 @@ itemToStatement item@(PcbnewFpPoly {}) = do
 itemToStatement item@(PcbnewPad {}) = do
   at <- vbzXY (pcbnewAtPoint (itemAt item))
   s <- vbz 's' $ vect (itemSize item)
+  attrs <- mapM attrToPair (padAttributes_ item)
   apnd "Pad" $ [ ( "number" , str (padNumber item) )
                , ( "type" , str (fpPadTypeToStr (padType item)) )
                , ( "shape" , str (fpPadShapeToStr (padShape item)) )
@@ -185,7 +188,7 @@ itemToStatement item@(PcbnewPad {}) = do
                , ( "rotation" , flo (pcbnewAtOrientation (itemAt item)) )
                , ( "size" , s )
                , ( "layers" , List (map (str . layerToStr) (padLayers item)) () )
-               ] ++ mapMaybe attrToPair (padAttributes_ item)
+               ] ++ catMaybes attrs
 
 itemsToStatements :: [PcbnewItem] -> [Statement ()]
 itemsToStatements items = assignVars vars' ++ [blankLine] ++ stmts
