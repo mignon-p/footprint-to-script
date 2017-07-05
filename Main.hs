@@ -1,6 +1,7 @@
 import Data.Kicad.PcbnewExpr hiding (pretty)
 import Data.Kicad.PcbnewExpr.PcbnewExpr
 import Data.Maybe
+import Data.List
 import Language.Python.Common
 import System.Environment
 import System.IO
@@ -49,6 +50,10 @@ callMethSt receiver method args =
 
 assign :: String -> Expr () -> Statement ()
 assign name exp = Assign [var name] exp ()
+
+-- this is an abuse of Strings but seems to work!
+blankLine :: Statement ()
+blankLine = StmtExpr (Strings [""] ()) ()
 
 imports :: [Statement ()]
 imports = [ FromImport fromModule fromItems () ]
@@ -148,7 +153,7 @@ output = [ assign asTo asExp, stmtExpr ]
 
 footprintToModule :: PcbnewModule -> Module ()
 footprintToModule pcb =
-  Module $ concat [imports, initialize pcb, items, output]
+  Module $ intercalate [blankLine] [imports, initialize pcb, items, output]
   where items = map itemToStatement (pcbnewModuleItems pcb)
 
 footprintToStr :: PcbnewModule -> String
