@@ -56,6 +56,9 @@ vect (x, y) = List [ flo x, flo y ] ()
 boo :: Bool -> Expr ()
 boo b = Bool b ()
 
+pad :: String -> Expr ()
+pad p = Dot (var "Pad") (Ident p ()) ()
+
 call :: String -> [Expr ()] -> Expr ()
 call name args = Call (var name) (map ordinary args) ()
   where ordinary exp = ArgExpr exp ()
@@ -128,6 +131,20 @@ vbzXY (x, y) = do
   y' <- vbz 'y' $ flo y
   return $ List [x', y'] ()
 
+pType :: PcbnewPadTypeT -> Expr ()
+pType ThruHole = pad "TYPE_THT"
+pType SMD = pad "TYPE_SMT"
+pType Connect = pad "TYPE_CONNECT"
+pType NPThruHole = pad "TYPE_NPTH"
+-- pType x = str (fpPadTypeToStr x)
+
+pShape :: PcbnewPadShapeT -> Expr ()
+pShape Circle = pad "SHAPE_CIRCLE"
+pShape Oval = pad "SHAPE_OVAL"
+pShape Rect = pad "SHAPE_RECT"
+pShape Trapezoid = pad "SHAPE_TRAPEZE"
+pShape x = str (fpPadShapeToStr x)
+
 itemToStatement :: PcbnewItem -> VarState (Statement ())
 itemToStatement item@(PcbnewFpText {}) = do
   at <- vbzXY (pcbnewAtPoint (itemAt item))
@@ -182,8 +199,8 @@ itemToStatement item@(PcbnewPad {}) = do
   s <- vbz 's' $ vect (itemSize item)
   attrs <- mapM attrToPair (padAttributes_ item)
   apnd "Pad" $ [ ( "number" , str (padNumber item) )
-               , ( "type" , str (fpPadTypeToStr (padType item)) )
-               , ( "shape" , str (fpPadShapeToStr (padShape item)) )
+               , ( "type" , pType (padType item) )
+               , ( "shape" , pShape (padShape item) )
                , ( "at" , at )
                , ( "rotation" , flo (pcbnewAtOrientation (itemAt item)) )
                , ( "size" , s )
