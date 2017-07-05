@@ -8,6 +8,14 @@ import System.IO
 import Text.PrettyPrint
 import Text.Printf
 
+variableize :: Char
+            -> Expr ()
+            -> [(String, Expr ())]
+            -> (String, [(String, Expr ())])
+variableize c exp vars =
+  let relevant = filter (\(x:_,_) -> c == x) vars
+      
+
 escape :: String -> String
 escape s = concatMap e s
   where e '\"' = "\\\""
