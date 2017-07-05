@@ -29,7 +29,7 @@ vbz :: Char -> Expr () -> VarState (Expr ())
 vbz c exp = do
   st <- get
   let (name, st') = variableize c exp st
-  put st
+  put st'
   return (var name)
 
 escape :: String -> String
@@ -121,38 +121,43 @@ attrToPair _ = Nothing
 
 itemToStatement :: PcbnewItem -> VarState (Statement ())
 itemToStatement item@(PcbnewFpText {}) = do
+  w <- vbz 'w' $ flo (fpTextThickness item)
   apnd "Text" [ ( "type" , str (fpTextTypeToStr (fpTextType item)) )
               , ( "text" , str (fpTextStr item) )
               , ( "at" , vect (pcbnewAtPoint (itemAt item)) )
               , ( "rotation" , flo (pcbnewAtOrientation (itemAt item)) )
               , ( "layer" , str (layerToStr (itemLayer item)) )
               , ( "size" , vect (itemSize item) )
-              , ( "thickness" , flo (fpTextThickness item) )
+              , ( "thickness" , w )
               , ( "hide" , boo (fpTextHide item) )
               ]
 itemToStatement item@(PcbnewFpLine {}) = do
+  w <- vbz 'w' $ flo (itemWidth item)
   apnd "Line" [ ( "start" , vect (itemStart item) )
               , ( "end" , vect (itemEnd item) )
               , ( "layer" , str (layerToStr (itemLayer item)) )
-              , ( "width" , flo (itemWidth item) )
+              , ( "width" , w )
               ]
 itemToStatement item@(PcbnewFpCircle {}) = do
+  w <- vbz 'w' $ flo (itemWidth item)
   apnd "Circle" [ ( "center" , vect (itemStart item) )
                 , ( "radius" , flo (pythag (itemStart item) (itemEnd item)) )
                 , ( "layer" , str (layerToStr (itemLayer item)) )
-                , ( "width" , flo (itemWidth item) )
+                , ( "width" , w )
                 ]
 itemToStatement item@(PcbnewFpArc {}) = do
+  w <- vbz 'w' $ flo (itemWidth item)
   apnd "Arc" [ ( "center" , vect (itemStart item) )
              , ( "start" , vect (itemEnd item) ) -- not sure about this
              , ( "angle" , flo (fpArcAngle item) )
              , ( "layer" , str (layerToStr (itemLayer item)) )
-             , ( "width" , flo (itemWidth item) )
+             , ( "width" , w )
              ]
 itemToStatement item@(PcbnewFpPoly {}) = do
+  w <- vbz 'w' $ flo (itemWidth item)
   apnd "PolygoneLine" [ ( "polygone" , List (map vect (fpPolyPts item)) () )
                       , ( "layer" , str (layerToStr (itemLayer item)) )
-                      , ( "width" , flo (itemWidth item) )
+                      , ( "width" , w )
                       ]
 itemToStatement item@(PcbnewPad {}) = do
   apnd "Pad" $ [ ( "number" , str (padNumber item) )
