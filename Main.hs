@@ -122,13 +122,14 @@ attrToPair _ = Nothing
 
 itemToStatement :: PcbnewItem -> VarState (Statement ())
 itemToStatement item@(PcbnewFpText {}) = do
+  s <- vbz 's' $ vect (itemSize item)
   w <- vbz 'w' $ flo (fpTextThickness item)
   apnd "Text" [ ( "type" , str (fpTextTypeToStr (fpTextType item)) )
               , ( "text" , str (fpTextStr item) )
               , ( "at" , vect (pcbnewAtPoint (itemAt item)) )
               , ( "rotation" , flo (pcbnewAtOrientation (itemAt item)) )
               , ( "layer" , str (layerToStr (itemLayer item)) )
-              , ( "size" , vect (itemSize item) )
+              , ( "size" , s )
               , ( "thickness" , w )
               , ( "hide" , boo (fpTextHide item) )
               ]
@@ -161,12 +162,13 @@ itemToStatement item@(PcbnewFpPoly {}) = do
                       , ( "width" , w )
                       ]
 itemToStatement item@(PcbnewPad {}) = do
+  s <- vbz 's' $ vect (itemSize item)
   apnd "Pad" $ [ ( "number" , str (padNumber item) )
                , ( "type" , str (fpPadTypeToStr (padType item)) )
                , ( "shape" , str (fpPadShapeToStr (padShape item)) )
                , ( "at" , vect (pcbnewAtPoint (itemAt item)) )
                , ( "rotation" , flo (pcbnewAtOrientation (itemAt item)) )
-               , ( "size" , vect (itemSize item) )
+               , ( "size" , s )
                , ( "layers" , List (map (str . layerToStr) (padLayers item)) () )
                ] ++ mapMaybe attrToPair (padAttributes_ item)
 
