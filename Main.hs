@@ -17,6 +17,9 @@ flo x = Float x (show x) ()
 vect :: V2Double -> Expr ()
 vect (x, y) = Tuple [ flo x, flo y ] ()
 
+boo :: Bool -> Expr ()
+boo b = Bool b ()
+
 call :: String -> [Expr ()] -> Expr ()
 call name args = Call (var name) (map ordinary args) ()
   where ordinary exp = ArgExpr exp ()
@@ -62,80 +65,32 @@ apnd :: String -> [(String, Expr ())] -> Statement ()
 apnd constructor args =
   callMethSt "kicad_mod" "append" $ callKW constructor args
 
-lay :: PcbnewLayerT -> String
-lay FSilkS = "F.SilkS"
-lay FCu = "F.Cu"
-lay FPaste = "F.Paste"
-lay FMask = "F.Mask"
-lay BSilkS = "B.SilkS"
-lay BCu = "B.Cu"
-lay BPaste = "B.Paste"
-lay BMask = "B.Mask"
-lay DwgsUser = "Dwgs.User"
-lay CmtsUser = "Cmts.User"
-lay FAdhes = "F.Adhes"
-lay AllSilk = "*.SilkS"
-lay FandBCu = ""
-lay AllCu = ""
-lay AllMask = ""
-lay AllPaste = ""
-lay EdgeCuts = ""
-lay FCrtYd = ""
-lay BCrtYd = ""
-lay FFab = ""
-lay BFab = ""
-lay Margin = ""
-lay Eco1User = ""
-lay Eco2User = ""
-lay BAdhes = ""
-lay Inner1Cu = ""
-lay Inner2Cu = ""
-lay Inner3Cu = ""
-lay Inner4Cu = ""
-lay Inner5Cu = ""
-lay Inner6Cu = ""
-lay Inner7Cu = ""
-lay Inner8Cu = ""
-lay Inner9Cu = ""
-lay Inner10Cu = ""
-lay Inner11Cu = ""
-lay Inner12Cu = ""
-lay Inner13Cu = ""
-lay Inner14Cu = ""
-lay Inner15Cu = ""
-lay Inner16Cu = ""
-lay Inner17Cu = ""
-lay Inner18Cu = ""
-lay Inner19Cu = ""
-lay Inner20Cu = ""
-lay Inner21Cu = ""
-lay Inner22Cu = ""
-lay Inner23Cu = ""
-lay Inner24Cu = ""
-lay Inner25Cu = ""
-lay Inner26Cu = ""
-lay Inner27Cu = ""
-lay Inner28Cu = ""
-lay Inner29Cu = ""
-lay Inner30Cu = ""
-lay Inner31Cu = ""
-lay Inner32Cu = ""
-
+pythag :: V2Double -> V2Double -> Double
+pythag = undefined -- TODO
 
 itemToStatement :: PcbnewItem -> Statement ()
 itemToStatement item@(PcbnewFpText {}) =
-  apnd Text [ ( "type" , tt (fpTextType item) )
-            , ( "text" , fpTextStr item )
-            , ( "at" , vect (pcbnewAtPoint (itemAt item)) )
-            , ( "rotation" , flo (pcbnewAtOrientation (itemAt item)) )
-            , ( "layer" , str (lay (itemLayer item)) )
-            , ( "size" , )
-            , ( "thickness" , )
-            , ( "hide" , )
-            ]
-  where tt FpTextReference = str "reference"
-        tt FpTextValue = str "value"
-        tt FpTextUser = str "user"
+  apnd "Text" [ ( "type" , str (fpTextTypeToStr (fpTextType item)) )
+              , ( "text" , fpTextStr item )
+              , ( "at" , vect (pcbnewAtPoint (itemAt item)) )
+              , ( "rotation" , flo (pcbnewAtOrientation (itemAt item)) )
+              , ( "layer" , str (layerToStr (itemLayer item)) )
+              , ( "size" , vect (itemSize item) )
+              , ( "thickness" , flo (fpTextThickness item) )
+              , ( "hide" , boo (fpTextHide item) )
+              ]
+itemToStatement item@(PcbnewFpLine {}) =
+  apnd "Line" [ ( "start" , vect (itemStart item) )
+              , ( "end" , vect (itemEnd item) )
+              , ( "layer" , str (layerToStr (itemLayer item)) )
+              , ( "width" , flo (itemWidth item) )
+              ]
+itemToStatement item@(PcbnewFpCircle {}) =
+  apnd "Circle" [ ( "center" , vect (itemStart item) )
+                , ( "radius" , flo (pythag (itemStart item) (itemEnd item)) )
+                , ( "layer" , str (layerToStr (itemLayer item)) )
+                , ( "width" , flo (itemWidth item) )
+                ]
 
 output :: [Statement ()]
 output = [ Assign asTo asExp (), StmtExpr stmtExpr () ]
