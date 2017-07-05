@@ -120,6 +120,13 @@ attrToPair (PcbnewSolderPasteRatio rat) =
   Just ("solder_paste_margin_ratio", flo rat)
 attrToPair _ = Nothing
 
+vbzAt :: PcbnewItem -> VarState (Expr ())
+vbzAt item = do
+  let (x, y) = pcbnewAtPoint (itemAt item)
+  x' <- vbz 'x' $ flo x
+  y' <- vbz 'y' $ flo y
+  return $ List [x', y'] ()
+
 itemToStatement :: PcbnewItem -> VarState (Statement ())
 itemToStatement item@(PcbnewFpText {}) = do
   s <- vbz 's' $ vect (itemSize item)
