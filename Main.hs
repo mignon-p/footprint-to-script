@@ -1,8 +1,9 @@
 import Control.Monad.Trans.State.Strict
 import Data.Kicad.PcbnewExpr hiding (pretty)
 import Data.Kicad.PcbnewExpr.PcbnewExpr
-import Data.Maybe
 import Data.List
+import Data.Maybe
+import Data.Ord
 import Language.Python.Common
 import System.Environment
 import System.IO
@@ -170,8 +171,9 @@ itemToStatement item@(PcbnewPad {}) = do
                ] ++ mapMaybe attrToPair (padAttributes_ item)
 
 itemsToStatements :: [PcbnewItem] -> [Statement ()]
-itemsToStatements items = assignVars vars ++ [blankLine] ++ stmts
+itemsToStatements items = assignVars vars' ++ [blankLine] ++ stmts
   where (stmts, vars) = runState go []
+        vars' = sortBy (comparing snd) vars
         go = mapM itemToStatement items
         assignVars = map assignVar
         assignVar (expr, name) = assign name expr
