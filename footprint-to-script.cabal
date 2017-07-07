@@ -13,10 +13,19 @@ name:                footprint-to-script
 version:             0.1.0.0
 
 -- A short (one-line) description of the package.
--- synopsis:
+synopsis: Convert a KiCad footprint to a Python script
 
 -- A longer description of the package.
--- description:
+description:
+    @footprint-to-script@ takes a KiCad footprint (a @.kicad_mod@
+    file), and produces a Python script which, when run, will
+    generate that footprint.
+    .
+    For each unique x or y coordinate, the Python script contains a
+    variable for that coordinate.  This makes it easier to move things
+    around by changing the values of the variables.
+    .
+    To run, the Python script requires the KicadModTree library.
 
 -- The license under which the package is released.
 license:             BSD3
@@ -32,9 +41,9 @@ author:              Patrick Pelletier
 maintainer:          code@funwithsoftware.org
 
 -- A copyright notice.
--- copyright:
+copyright:           Copyright (c) 2017, Patrick Pelletier
 
--- category:
+category:            Development
 
 build-type:          Simple
 
@@ -44,6 +53,13 @@ extra-source-files:  ChangeLog.md
 
 -- Constraint on the version of Cabal needed to build this package.
 cabal-version:       >=1.10
+
+tested-with:         GHC == 7.8.3
+                   , GHC == 8.0.2
+
+source-repository head
+  Type:     git
+  Location: https://github.com/ppelleti/footprint-to-script.git
 
 
 executable footprint-to-script
