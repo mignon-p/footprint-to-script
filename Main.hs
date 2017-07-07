@@ -1,3 +1,4 @@
+import Control.Monad
 import Control.Monad.Trans.State.Strict
 import Data.Kicad.PcbnewExpr hiding (pretty)
 import Data.Kicad.PcbnewExpr.PcbnewExpr
@@ -6,6 +7,7 @@ import Data.Maybe
 import Data.Ord
 import Language.Python.Common
 import System.Environment
+import System.Exit
 import System.IO
 import Text.PrettyPrint
 import Text.Printf
@@ -269,10 +271,15 @@ footprintToFile pcb file = withFile file WriteMode $ \h -> do
   hPutStrLn h $ footprintToStr pcb
 
 main = do
-  [file, out] <- getArgs
+  args <- getArgs
+  when (length args /= 2) $ do
+    let u = "Usage: footprint-to-script inputfile.kicad_mod outputfile.py"
+    hPutStrLn stderr u
+    exitFailure
+  let [file, out] = args
   contents <- readFile file
   let eth = parse contents
   case eth of
-    Left s -> putStrLn s
+    Left s -> hPutStrLn stderr s >> exitFailure
     Right (PcbnewExprModule x) -> footprintToFile x out
-    _ -> putStrLn "not a module"
+    _ -> hPutStrLn stderr "not a module" >> exitFailure
