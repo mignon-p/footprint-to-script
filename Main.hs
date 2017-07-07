@@ -169,21 +169,30 @@ layers ["*.Cu", "*.Mask"] NPThruHole = pad "LAYERS_NPTH"
 layers ["*.Cu", "*.Mask"] _ = pad "LAYERS_THT"
 layers ls _ = List (map str ls) ()
 
+optionalArg :: String -> Expr () -> Expr () -> [(String, Expr ())]
+optionalArg name val def
+  | val == def = []
+  | otherwise = [(name, val)]
+
+optionalRot :: PcbnewItem -> [(String, Expr ())]
+optionalRot item =
+  let val = flo (pcbnewAtOrientation (itemAt item))
+  in optionalArg "rotation" val (flo 0)
+
 itemToStatement :: PcbnewItem -> VarState (Statement ())
 itemToStatement item@(PcbnewFpText {}) = do
   txt <- vbzTxt (fpTextStr item)
   at <- vbzXY (pcbnewAtPoint (itemAt item))
   s <- vbz 's' $ vect (itemSize item)
   w <- vbz 'w' $ flo (fpTextThickness item)
-  apnd "Text" [ ( "type" , str (fpTextTypeToStr (fpTextType item)) )
-              , ( "text" , txt )
-              , ( "at" , at )
-              , ( "rotation" , flo (pcbnewAtOrientation (itemAt item)) )
-              , ( "layer" , str (layerToStr (itemLayer item)) )
-              , ( "size" , s )
-              , ( "thickness" , w )
-              , ( "hide" , boo (fpTextHide item) )
-              ]
+  apnd "Text" $ [ ( "type" , str (fpTextTypeToStr (fpTextType item)) )
+                , ( "text" , txt )
+                , ( "at" , at )
+                ] ++ optionalRot item ++
+                [ ( "layer" , str (layerToStr (itemLayer item)) )
+                , ( "size" , s )
+                , ( "thickness" , w )
+                ] ++ optionalArg "hide" (boo (fpTextHide item)) (boo False)
 itemToStatement item@(PcbnewFpLine {}) = do
   start <- vbzXY (itemStart item)
   end <- vbzXY (itemEnd item)
@@ -227,8 +236,8 @@ itemToStatement item@(PcbnewPad {}) = do
                , ( "type" , pType (padType item) )
                , ( "shape" , pShape (padShape item) )
                , ( "at" , at )
-               , ( "rotation" , flo (pcbnewAtOrientation (itemAt item)) )
-               , ( "size" , s )
+               ] ++ optionalRot item ++
+               [ ( "size" , s )
                , ( "layers" , layers (map layerToStr (padLayers item)) (padType item) )
                ] ++ catMaybes attrs
 
