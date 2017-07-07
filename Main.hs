@@ -10,7 +10,12 @@ import System.IO
 import Text.PrettyPrint
 import Text.Printf
 
-type VarState = State [(Expr (), String)]
+data MyState =
+  MyState
+  { sVars :: [(Expr (), String)]
+  }
+
+type VarState = State MyState
 
 variableize :: Char
             -> Expr ()
@@ -29,7 +34,9 @@ variableize c exp vars =
 vbz :: Char -> Expr () -> VarState (Expr ())
 vbz c exp = do
   st <- get
-  let (name, st') = variableize c exp st
+  let vars = sVars st
+      (name, vars') = variableize c exp vars
+      st' = st { sVars = vars' }
   put st'
   return (var name)
 
@@ -215,7 +222,7 @@ itemToStatement item@(PcbnewPad {}) = do
 
 itemsToStatements :: [PcbnewItem] -> [Statement ()]
 itemsToStatements items = assignVars vars' ++ [blankLine] ++ stmts
-  where (stmts, vars) = runState go []
+  where (stmts, MyState vars) = runState go $ MyState []
         vars' = sortBy (comparing cmp) vars
         go = mapM itemToStatement items
         assignVars = map assignVar
