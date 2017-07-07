@@ -183,7 +183,7 @@ itemToStatement :: PcbnewItem -> VarState (Statement ())
 itemToStatement item@(PcbnewFpText {}) = do
   txt <- vbzTxt (fpTextStr item)
   at <- vbzXY (pcbnewAtPoint (itemAt item))
-  s <- vbz 's' $ vect (itemSize item)
+  s <- vbz 't' $ vect (itemSize item)
   w <- vbz 'w' $ flo (fpTextThickness item)
   apnd "Text" $ [ ( "type" , str (fpTextTypeToStr (fpTextType item)) )
                 , ( "text" , txt )
@@ -230,7 +230,7 @@ itemToStatement item@(PcbnewFpPoly {}) = do
                       ]
 itemToStatement item@(PcbnewPad {}) = do
   at <- vbzXY (pcbnewAtPoint (itemAt item))
-  s <- vbz 's' $ vect (itemSize item)
+  s <- vbz 'p' $ vect (itemSize item)
   attrs <- mapM attrToPair (padAttributes_ item)
   apnd "Pad" $ [ ( "number" , str (padNumber item) )
                , ( "type" , pType (padType item) )
