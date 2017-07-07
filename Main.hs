@@ -139,6 +139,14 @@ vbzXY (x, y) = do
   y' <- vbz 'y' $ flo y
   return $ List [x', y'] ()
 
+vbzTxt :: String -> VarState (Expr ())
+vbzTxt s = do
+  st <- get
+  let modName = sModule st
+  if s == modName
+    then return (var "footprint_name")
+    else return (str s)
+
 pType :: PcbnewPadTypeT -> Expr ()
 pType ThruHole = pad "TYPE_THT"
 pType SMD = pad "TYPE_SMT"
@@ -161,11 +169,12 @@ layers ls _ = List (map str ls) ()
 
 itemToStatement :: PcbnewItem -> VarState (Statement ())
 itemToStatement item@(PcbnewFpText {}) = do
+  txt <- vbzTxt (fpTextStr item)
   at <- vbzXY (pcbnewAtPoint (itemAt item))
   s <- vbz 's' $ vect (itemSize item)
   w <- vbz 'w' $ flo (fpTextThickness item)
   apnd "Text" [ ( "type" , str (fpTextTypeToStr (fpTextType item)) )
-              , ( "text" , str (fpTextStr item) )
+              , ( "text" , txt )
               , ( "at" , at )
               , ( "rotation" , flo (pcbnewAtOrientation (itemAt item)) )
               , ( "layer" , str (layerToStr (itemLayer item)) )
