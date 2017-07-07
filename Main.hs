@@ -13,6 +13,7 @@ import Text.Printf
 data MyState =
   MyState
   { sVars :: [(Expr (), String)]
+  , sModule :: String
   }
 
 type VarState = State MyState
@@ -220,9 +221,9 @@ itemToStatement item@(PcbnewPad {}) = do
                , ( "layers" , layers (map layerToStr (padLayers item)) (padType item) )
                ] ++ catMaybes attrs
 
-itemsToStatements :: [PcbnewItem] -> [Statement ()]
-itemsToStatements items = assignVars vars' ++ [blankLine] ++ stmts
-  where (stmts, MyState vars) = runState go $ MyState []
+itemsToStatements :: String -> [PcbnewItem] -> [Statement ()]
+itemsToStatements modName items = assignVars vars' ++ [blankLine] ++ stmts
+  where (stmts, MyState vars _) = runState go $ MyState [] modName
         vars' = sortBy (comparing cmp) vars
         go = mapM itemToStatement items
         assignVars = map assignVar
@@ -243,7 +244,7 @@ output = [ assign asTo asExp, stmtExpr ]
 footprintToModule :: PcbnewModule -> Module ()
 footprintToModule pcb =
   Module $ intercalate [blankLine] [imports, initialize pcb, items, output]
-  where items = itemsToStatements (pcbnewModuleItems pcb)
+  where items = itemsToStatements (pcbnewModuleName pcb) (pcbnewModuleItems pcb)
 
 footprintToStr :: PcbnewModule -> String
 footprintToStr = renderStyle sty . pretty . footprintToModule
