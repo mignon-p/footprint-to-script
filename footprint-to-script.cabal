@@ -76,6 +76,7 @@ executable footprint-to-script
   build-depends:       base >= 4.7 && < 5
                      , kicad-data >= 0.4 && < 5
                      , language-python >= 0.5.4 && < 0.6
+                     , optparse-applicative >= 0.13 && < 0.15
                      , pretty >= 1.1.1.1 && < 1.2
                      , transformers >= 0.3 && < 0.6
 

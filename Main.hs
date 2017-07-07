@@ -6,6 +6,8 @@ import Data.List
 import Data.Maybe
 import Data.Ord
 import Language.Python.Common
+import Options.Applicative hiding (str, style)
+import qualified Options.Applicative as O (str)
 import System.Environment
 import System.Exit
 import System.IO
@@ -279,16 +281,43 @@ footprintToFile pcb file = withFile file WriteMode $ \h -> do
   hPutStrLn h ""
   hPutStrLn h $ footprintToStr pcb
 
+data Opts = Opts
+  { oX   :: Double
+  , oY   :: Double
+  , oRot :: Int
+  , oIn  :: String
+  , oOut :: String
+  }
+
+opts :: Parser Opts
+opts = Opts <$> optX <*> optY <*> optRot <*> argIn <*> argOut
+  where optX = option auto (short 'x' <>
+                            metavar "FLOAT" <>
+                            help ("Amount to translate in X (default 0)")
+                            value 0)
+        optY = option auto (short 'y' <>
+                            metavar "FLOAT" <>
+                            help ("Amount to translate in Y (default 0)")
+                            value 0)
+        optRot = option auto (short 'r' <>
+                              metavar "DEGREES" <>
+                              help ("Clockwise rotation around origin, " <>
+                                    "after applying translation.  Must be " <>
+                                    "0, 90, 180, or 270.  (default 0)")
+                              value 0)
+        argIn = argument O.str (metavar "INPUTFILE.kicad_mod")
+        argOut = argument O.str (metavar "OUTPUTFILE.py")
+
+opts' = info (helper <*> opts)
+  ( fullDesc <>
+    header "footprint-to-script - convert a KiCad footprint to a Python script"
+  )
+
 main = do
-  args <- getArgs
-  when (length args /= 2) $ do
-    let u = "Usage: footprint-to-script inputfile.kicad_mod outputfile.py"
-    hPutStrLn stderr u
-    exitFailure
-  let [file, out] = args
-  contents <- readFile file
+  o <- execParser opts'
+  contents <- readFile (oIn o)
   let eth = parse contents
   case eth of
     Left s -> hPutStrLn stderr s >> exitFailure
-    Right (PcbnewExprModule x) -> footprintToFile x out
+    Right (PcbnewExprModule x) -> footprintToFile x (oOut o)
     _ -> hPutStrLn stderr "not a module" >> exitFailure
