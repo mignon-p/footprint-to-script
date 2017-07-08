@@ -265,8 +265,9 @@ itemToStatement item@(PcbnewPad {}) = do
                , ( "layers" , layers (map layerToStr (padLayers item)) (padType item) )
                ] ++ catMaybes attrs
 
+-- 90 degrees clockwise rotation
 rot90 :: V2Double -> V2Double
-rot90 (x, y) = (y, -x)
+rot90 (x, y) = (-y, x)
 
 transformPtFunc :: Opts -> V2Double -> V2Double
 transformPtFunc opt =
