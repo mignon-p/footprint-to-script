@@ -1,17 +1,20 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 import Control.Monad
 import Control.Monad.Trans.State.Strict
 import Data.Kicad.PcbnewExpr hiding (pretty)
 import Data.Kicad.PcbnewExpr.PcbnewExpr
 import Data.List
 import Data.Maybe
+import Data.Monoid ((<>))
 import Data.Ord
-import Language.Python.Common
+import Language.Python.Common hiding ((<>))
 import Options.Applicative hiding (str, style)
 import qualified Options.Applicative as O (str)
 import System.Environment
 import System.Exit
 import System.IO
-import Text.PrettyPrint
+import Text.PrettyPrint hiding ((<>))
 import Text.Printf
 
 data MyState =
@@ -291,22 +294,35 @@ data Opts = Opts
 
 opts :: Parser Opts
 opts = Opts <$> optX <*> optY <*> optRot <*> argIn <*> argOut
-  where optX = option auto (short 'x' <>
-                            metavar "FLOAT" <>
-                            help ("Amount to translate in X (default 0)")
-                            value 0)
-        optY = option auto (short 'y' <>
-                            metavar "FLOAT" <>
-                            help ("Amount to translate in Y (default 0)")
-                            value 0)
-        optRot = option auto (short 'r' <>
-                              metavar "DEGREES" <>
-                              help ("Clockwise rotation around origin, " <>
-                                    "after applying translation.  Must be " <>
-                                    "0, 90, 180, or 270.  (default 0)")
-                              value 0)
-        argIn = argument O.str (metavar "INPUTFILE.kicad_mod")
-        argOut = argument O.str (metavar "OUTPUTFILE.py")
+
+optX :: Parser Double
+optX = option auto (long "translate-x" <>
+                    short 'x' <>
+                    metavar "FLOAT" <>
+                    help ("Amount to translate in X (default 0)") <>
+                    value 0)
+
+optY :: Parser Double
+optY = option auto (long "translate-y" <>
+                    short 'y' <>
+                    metavar "FLOAT" <>
+                    help ("Amount to translate in Y (default 0)") <>
+                    value 0)
+
+optRot :: Parser Int
+optRot = option auto (long "rotate" <>
+                      short 'r' <>
+                      metavar "DEGREES" <>
+                      help ("Clockwise rotation around origin, " <>
+                            "after applying translation.  Must be " <>
+                            "0, 90, 180, or 270.  (default 0)") <>
+                      value 0)
+
+argIn :: Parser String
+argIn = argument O.str (metavar "INPUTFILE.kicad_mod")
+
+argOut :: Parser String
+argOut = argument O.str (metavar "OUTPUTFILE.py")
 
 opts' = info (helper <*> opts)
   ( fullDesc <>
