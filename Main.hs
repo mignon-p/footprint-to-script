@@ -8,14 +8,18 @@ import Data.List
 import Data.Maybe
 import Data.Monoid ((<>))
 import Data.Ord
+import Data.Version
 import Language.Python.Common hiding ((<>))
 import Options.Applicative hiding (str, style)
 import qualified Options.Applicative as O (str)
 import System.Environment
 import System.Exit
+import System.Info
 import System.IO
 import Text.PrettyPrint hiding ((<>))
 import Text.Printf
+
+import Paths_footprint_to_script
 
 data MyState =
   MyState
@@ -322,12 +326,18 @@ argIn = argument O.str (metavar "INPUTFILE.kicad_mod")
 argOut :: Parser String
 argOut = argument O.str (metavar "OUTPUTFILE.py")
 
+verStr :: String
+verStr =
+  "footprint-to-script " ++ showVersion version ++ "\n" ++
+  "Compiled with " ++ compilerName ++ " " ++ showVersion compilerVersion ++
+  "\nSee https://github.com/ppelleti/footprint-to-script"
+
 versionOpt :: Parser (a -> a)
 versionOpt =
-  infoOption "version x.y.z" (long "version" <>
-                              short 'v' <>
-                              help "Print version" <>
-                              hidden)
+  infoOption verStr (long "version" <>
+                     short 'v' <>
+                     help "Print version" <>
+                     hidden)
 
 opts' = info (helper <*> versionOpt <*> opts)
   ( fullDesc <>
