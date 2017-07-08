@@ -265,8 +265,8 @@ itemToStatement item@(PcbnewPad {}) = do
                , ( "layers" , layers (map layerToStr (padLayers item)) (padType item) )
                ] ++ catMaybes attrs
 
-itemsToStatements :: String -> [PcbnewItem] -> [Statement ()]
-itemsToStatements modName items = assignVars vars' ++ [blankLine] ++ stmts
+itemsToStatements :: Opts -> String -> [PcbnewItem] -> [Statement ()]
+itemsToStatements opt modName items = assignVars vars' ++ [blankLine] ++ stmts
   where (stmts, MyState vars _ _ _) = runState go $ MyState [] modName id id
         vars' = sortBy (comparing cmp) vars
         go = mapM itemToStatement items
@@ -285,23 +285,24 @@ output = [ assign asTo asExp, stmtExpr ]
     leftOpArg = var "footprint_name"
     rightOpArg = str ".kicad_mod"
 
-footprintToModule :: PcbnewModule -> Module ()
-footprintToModule pcb =
+footprintToModule :: Opts -> PcbnewModule -> Module ()
+footprintToModule opts pcb =
   Module $ intercalate [blankLine] [imports, initialize pcb, items, output]
-  where items = itemsToStatements (pcbnewModuleName pcb) (pcbnewModuleItems pcb)
+  where items =
+          itemsToStatements opts (pcbnewModuleName pcb) (pcbnewModuleItems pcb)
 
-footprintToStr :: PcbnewModule -> String
-footprintToStr = renderStyle sty . pretty . footprintToModule
+footprintToStr :: Opts -> PcbnewModule -> String
+footprintToStr opts = renderStyle sty . pretty . footprintToModule opts
   -- Unfortunately, language-python produces very long lines, despite
   -- the lineLength setting:
   -- https://github.com/bjpop/language-python/issues/3
   where sty = style { lineLength = 78 }
 
-footprintToFile :: PcbnewModule -> FilePath -> IO ()
-footprintToFile pcb file = withFile file WriteMode $ \h -> do
+footprintToFile :: Opts -> PcbnewModule -> FilePath -> IO ()
+footprintToFile opts pcb file = withFile file WriteMode $ \h -> do
   hPutStrLn h "#!/usr/bin/env python3"
   hPutStrLn h ""
-  hPutStrLn h $ footprintToStr pcb
+  hPutStrLn h $ footprintToStr opts pcb
 
 data Opts =
   Opts
@@ -366,5 +367,5 @@ main = do
   let eth = parse contents
   case eth of
     Left s -> hPutStrLn stderr s >> exitFailure
-    Right (PcbnewExprModule x) -> footprintToFile x (oOut o)
+    Right (PcbnewExprModule x) -> footprintToFile o x (oOut o)
     _ -> hPutStrLn stderr "not a module" >> exitFailure
