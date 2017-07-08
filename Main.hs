@@ -296,22 +296,19 @@ opts :: Parser Opts
 opts = Opts <$> optX <*> optY <*> optRot <*> argIn <*> argOut
 
 optX :: Parser Double
-optX = option auto (long "translate-x" <>
-                    short 'x' <>
+optX = option auto (short 'x' <>
                     metavar "FLOAT" <>
                     help ("Amount to translate in X (default 0)") <>
                     value 0)
 
 optY :: Parser Double
-optY = option auto (long "translate-y" <>
-                    short 'y' <>
+optY = option auto (short 'y' <>
                     metavar "FLOAT" <>
                     help ("Amount to translate in Y (default 0)") <>
                     value 0)
 
 optRot :: Parser Int
-optRot = option auto (long "rotate" <>
-                      short 'r' <>
+optRot = option auto (short 'r' <>
                       metavar "DEGREES" <>
                       help ("Clockwise rotation around origin, " <>
                             "after applying translation.  Must be " <>
