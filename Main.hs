@@ -25,6 +25,8 @@ data MyState =
   MyState
   { sVars :: [(Expr (), String)]
   , sModule :: String
+  , sTransformPoint :: V2Double -> V2Double
+  , sTransformRot :: Double -> Double
   }
 
 type VarState = State MyState
@@ -252,7 +254,7 @@ itemToStatement item@(PcbnewPad {}) = do
 
 itemsToStatements :: String -> [PcbnewItem] -> [Statement ()]
 itemsToStatements modName items = assignVars vars' ++ [blankLine] ++ stmts
-  where (stmts, MyState vars _) = runState go $ MyState [] modName
+  where (stmts, MyState vars _ _ _) = runState go $ MyState [] modName id id
         vars' = sortBy (comparing cmp) vars
         go = mapM itemToStatement items
         assignVars = map assignVar
