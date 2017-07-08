@@ -146,8 +146,19 @@ attrToPair (PcbnewSolderPasteRatio rat) =
   return $ Just ("solder_paste_margin_ratio", flo rat)
 attrToPair _ = return Nothing
 
+transformXY :: V2Double -> VarState V2Double
+transformXY xy = do
+  st <- get
+  return $ sTransformPoint st xy
+
+transformRot :: Double -> VarState Double
+transformRot r = do
+  st <- get
+  return $ sTransformRot st r
+
 vbzXY :: V2Double -> VarState (Expr ())
-vbzXY (x, y) = do
+vbzXY xy = do
+  (x, y) <- transformXY xy
   x' <- vbz 'x' $ flo x
   y' <- vbz 'y' $ flo y
   return $ List [x', y'] ()
@@ -185,10 +196,10 @@ optionalArg name val def
   | val == def = []
   | otherwise = [(name, val)]
 
-optionalRot :: PcbnewItem -> [(String, Expr ())]
-optionalRot item =
-  let val = flo (pcbnewAtOrientation (itemAt item))
-  in optionalArg "rotation" val (flo 0)
+optionalRot :: PcbnewItem -> VarState [(String, Expr ())]
+optionalRot item = do
+  r <- transformRot (pcbnewAtOrientation (itemAt item))
+  return $ optionalArg "rotation" (flo r) (flo 0)
 
 itemToStatement :: PcbnewItem -> VarState (Statement ())
 itemToStatement item@(PcbnewFpText {}) = do
@@ -196,10 +207,11 @@ itemToStatement item@(PcbnewFpText {}) = do
   at <- vbzXY (pcbnewAtPoint (itemAt item))
   s <- vbz 't' $ vect (itemSize item)
   w <- vbz 'w' $ flo (fpTextThickness item)
+  r <- optionalRot item
   apnd "Text" $ [ ( "type" , str (fpTextTypeToStr (fpTextType item)) )
                 , ( "text" , txt )
                 , ( "at" , at )
-                ] ++ optionalRot item ++
+                ] ++ r ++
                 [ ( "layer" , str (layerToStr (itemLayer item)) )
                 , ( "size" , s )
                 , ( "thickness" , w )
@@ -243,11 +255,12 @@ itemToStatement item@(PcbnewPad {}) = do
   at <- vbzXY (pcbnewAtPoint (itemAt item))
   s <- vbz 'p' $ vect (itemSize item)
   attrs <- mapM attrToPair (padAttributes_ item)
+  r <- optionalRot item
   apnd "Pad" $ [ ( "number" , str (padNumber item) )
                , ( "type" , pType (padType item) )
                , ( "shape" , pShape (padShape item) )
                , ( "at" , at )
-               ] ++ optionalRot item ++
+               ] ++ r ++
                [ ( "size" , s )
                , ( "layers" , layers (map layerToStr (padLayers item)) (padType item) )
                ] ++ catMaybes attrs
