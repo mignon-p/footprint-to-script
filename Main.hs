@@ -284,16 +284,20 @@ footprintToFile pcb file = withFile file WriteMode $ \h -> do
   hPutStrLn h ""
   hPutStrLn h $ footprintToStr pcb
 
-data Opts = Opts
-  { oX   :: Double
-  , oY   :: Double
-  , oRot :: Int
-  , oIn  :: String
-  , oOut :: String
-  }
+data Opts = Vers Bool | Opts
+                        { oX   :: Double
+                        , oY   :: Double
+                        , oRot :: Int
+                        , oIn  :: String
+                        , oOut :: String
+                        }
 
 opts :: Parser Opts
-opts = Opts <$> optX <*> optY <*> optRot <*> argIn <*> argOut
+opts = (Vers <$> optV) <|>
+       (Opts <$> optX <*> optY <*> optRot <*> argIn <*> argOut)
+
+optV :: Parser Bool
+optV = switch (long "version" <> short 'v' <> help "Print version" <> hidden)
 
 optX :: Parser Double
 optX = option auto (short 'x' <>
@@ -328,6 +332,10 @@ opts' = info (helper <*> opts)
 
 main = do
   o <- execParser opts'
+  case o of
+    Vers _ -> hPutStrLn stderr "version x.y.z" >> exitFailure
+    _ -> return ()
+
   contents <- readFile (oIn o)
   let eth = parse contents
   case eth of
