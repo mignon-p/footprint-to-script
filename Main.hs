@@ -265,9 +265,30 @@ itemToStatement item@(PcbnewPad {}) = do
                , ( "layers" , layers (map layerToStr (padLayers item)) (padType item) )
                ] ++ catMaybes attrs
 
+rot90 :: V2Double -> V2Double
+rot90 (x, y) = (y, -x)
+
+transformPtFunc :: Opts -> V2Double -> V2Double
+transformPtFunc opt =
+  let translate (x, y) = (x + dx, y + dy)
+      dx = oX opt
+      dy = oY opt
+  in case oRot opt of
+       0 -> translate
+       90 -> rot90 . translate
+       180 -> rot90 . rot90 . translate
+       270 -> rot90 . rot90 . rot90 . translate
+       -- should have already been caught before this point
+       _ -> error "rotation must be one of 0, 90, 180, or 270"
+
+transformRotFunc :: Opts -> Double -> Double
+transformRotFunc opt rot = rot + fromIntegral (oRot opt)
+
 itemsToStatements :: Opts -> String -> [PcbnewItem] -> [Statement ()]
 itemsToStatements opt modName items = assignVars vars' ++ [blankLine] ++ stmts
-  where (stmts, MyState vars _ _ _) = runState go $ MyState [] modName id id
+  where (stmts, MyState vars _ _ _) = runState go $ MyState [] modName tPt tRot
+        tPt = transformPtFunc opt
+        tRot = transformRotFunc opt
         vars' = sortBy (comparing cmp) vars
         go = mapM itemToStatement items
         assignVars = map assignVar
@@ -362,6 +383,10 @@ opts' = info (helper <*> versionOpt <*> opts)
 
 main = do
   o <- execParser opts'
+
+  when (oRot o `notElem` [0, 90, 180, 270]) $ do
+    hPutStrLn stderr "rotation must be one of 0, 90, 180, or 270"
+    exitFailure
 
   contents <- readFile (oIn o)
   let eth = parse contents
