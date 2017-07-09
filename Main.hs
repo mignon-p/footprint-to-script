@@ -8,6 +8,7 @@ import Data.List
 import Data.Maybe
 import Data.Monoid ((<>))
 import Data.Ord
+import Data.Scientific
 import Data.Version
 import Language.Python.Common hiding ((<>))
 import Options.Applicative hiding (str, style)
@@ -25,11 +26,22 @@ data MyState =
   MyState
   { sVars :: [(Expr (), String)]
   , sModule :: String
-  , sTransformPoint :: V2Double -> V2Double
-  , sTransformRot :: Double -> Double
+  , sTransformPoint :: V2Sci -> V2Sci
+  , sTransformRot :: Scientific -> Scientific
   }
 
 type VarState = State MyState
+
+type V2Sci = (Scientific, Scientific)
+
+dbl2sci :: Double -> Scientific
+dbl2sci = read . show
+
+vdbl2sci :: V2Double -> V2Sci
+vdbl2sci (x, y) = (dbl2sci x, dbl2sci y)
+
+sci2dbl :: Scientific -> Double
+sci2dbl = toRealFloat
 
 variableize :: Char
             -> Expr ()
@@ -68,11 +80,17 @@ var s = Var (Ident s ()) ()
 str :: String -> Expr ()
 str s = Strings ["\"", escape s, "\""] ()
 
-flo :: Double -> Expr ()
-flo x = Float x (printf "%f" x) ()
+flo :: Scientific -> Expr ()
+flo x = Float (sci2dbl x) (show x) ()
 
-vect :: V2Double -> Expr ()
+dflo :: Double -> Expr ()
+dflo x = Float x (printf "%f" x) ()
+
+vect :: V2Sci -> Expr ()
 vect (x, y) = List [ flo x, flo y ] ()
+
+dvect :: V2Double -> Expr ()
+dvect (x, y) = List [ dflo x, dflo y ] ()
 
 boo :: Bool -> Expr ()
 boo b = Bool b ()
@@ -130,35 +148,35 @@ apnd constructor args =
   return $ callMethSt "kicad_mod" "append" [callKW constructor args]
 
 pythag :: V2Double -> V2Double -> Double
-pythag (x1, y1) (x2, y2) = sqrt (dx * dx + dy * dy)
-  where dx = x2 - x1
-        dy = y2 - y1
+pythag (x1, y1) (x2, y2) = sqrt $ sci2dbl $ dx * dx + dy * dy
+  where dx = dbl2sci x2 - dbl2sci x1
+        dy = dbl2sci y2 - dbl2sci y1
 
 attrToPair :: PcbnewAttribute -> VarState (Maybe (String, Expr ()))
 attrToPair (PcbnewDrill drill) = do
   case pcbnewDrillSize drill of
     Nothing -> return Nothing
     Just v -> do
-      d <- vbz 'd' (vect v)
+      d <- vbz 'd' (dvect v)
       return $ Just ("drill", d)
-attrToPair (PcbnewOffset off) = return $ Just ("offset", vect off)
+attrToPair (PcbnewOffset off) = return $ Just ("offset", dvect off)
 attrToPair (PcbnewSolderPasteRatio rat) =
-  return $ Just ("solder_paste_margin_ratio", flo rat)
+  return $ Just ("solder_paste_margin_ratio", dflo rat)
 attrToPair _ = return Nothing
 
-transformXY :: V2Double -> VarState V2Double
+transformXY :: V2Sci -> VarState V2Sci
 transformXY xy = do
   st <- get
   return $ sTransformPoint st xy
 
-transformRot :: Double -> VarState Double
+transformRot :: Scientific -> VarState Scientific
 transformRot r = do
   st <- get
   return $ sTransformRot st r
 
 vbzXY :: V2Double -> VarState (Expr ())
 vbzXY xy = do
-  (x, y) <- transformXY xy
+  (x, y) <- transformXY $ vdbl2sci xy
   x' <- vbz 'x' $ flo x
   y' <- vbz 'y' $ flo y
   return $ List [x', y'] ()
@@ -198,15 +216,15 @@ optionalArg name val def
 
 optionalRot :: PcbnewItem -> VarState [(String, Expr ())]
 optionalRot item = do
-  r <- transformRot (pcbnewAtOrientation (itemAt item))
+  r <- transformRot $ dbl2sci $ pcbnewAtOrientation $ itemAt item
   return $ optionalArg "rotation" (flo r) (flo 0)
 
 itemToStatement :: PcbnewItem -> VarState (Statement ())
 itemToStatement item@(PcbnewFpText {}) = do
   txt <- vbzTxt (fpTextStr item)
   at <- vbzXY (pcbnewAtPoint (itemAt item))
-  s <- vbz 't' $ vect (itemSize item)
-  w <- vbz 'w' $ flo (fpTextThickness item)
+  s <- vbz 't' $ dvect (itemSize item)
+  w <- vbz 'w' $ dflo (fpTextThickness item)
   r <- optionalRot item
   apnd "Text" $ [ ( "type" , str (fpTextTypeToStr (fpTextType item)) )
                 , ( "text" , txt )
@@ -219,7 +237,7 @@ itemToStatement item@(PcbnewFpText {}) = do
 itemToStatement item@(PcbnewFpLine {}) = do
   start <- vbzXY (itemStart item)
   end <- vbzXY (itemEnd item)
-  w <- vbz 'w' $ flo (itemWidth item)
+  w <- vbz 'w' $ dflo (itemWidth item)
   apnd "Line" [ ( "start" , start )
               , ( "end" , end )
               , ( "layer" , str (layerToStr (itemLayer item)) )
@@ -227,8 +245,8 @@ itemToStatement item@(PcbnewFpLine {}) = do
               ]
 itemToStatement item@(PcbnewFpCircle {}) = do
   center <- vbzXY (itemStart item)
-  r <- vbz 'r' $ flo (pythag (itemStart item) (itemEnd item))
-  w <- vbz 'w' $ flo (itemWidth item)
+  r <- vbz 'r' $ dflo (pythag (itemStart item) (itemEnd item))
+  w <- vbz 'w' $ dflo (itemWidth item)
   apnd "Circle" [ ( "center" , center )
                 , ( "radius" , r )
                 , ( "layer" , str (layerToStr (itemLayer item)) )
@@ -237,23 +255,23 @@ itemToStatement item@(PcbnewFpCircle {}) = do
 itemToStatement item@(PcbnewFpArc {}) = do
   center <- vbzXY (itemStart item)
   start <- vbzXY (itemEnd item) -- not sure about this
-  w <- vbz 'w' $ flo (itemWidth item)
+  w <- vbz 'w' $ dflo (itemWidth item)
   apnd "Arc" [ ( "center" , center )
              , ( "start" , start )
-             , ( "angle" , flo (fpArcAngle item) )
+             , ( "angle" , dflo (fpArcAngle item) )
              , ( "layer" , str (layerToStr (itemLayer item)) )
              , ( "width" , w )
              ]
 itemToStatement item@(PcbnewFpPoly {}) = do
   poly <- mapM vbzXY (fpPolyPts item)
-  w <- vbz 'w' $ flo (itemWidth item)
+  w <- vbz 'w' $ dflo (itemWidth item)
   apnd "PolygoneLine" [ ( "polygone" , List poly () )
                       , ( "layer" , str (layerToStr (itemLayer item)) )
                       , ( "width" , w )
                       ]
 itemToStatement item@(PcbnewPad {}) = do
   at <- vbzXY (pcbnewAtPoint (itemAt item))
-  s <- vbz 'p' $ vect (itemSize item)
+  s <- vbz 'p' $ dvect (itemSize item)
   attrs <- mapM attrToPair (padAttributes_ item)
   r <- optionalRot item
   apnd "Pad" $ [ ( "number" , str (padNumber item) )
@@ -266,10 +284,10 @@ itemToStatement item@(PcbnewPad {}) = do
                ] ++ catMaybes attrs
 
 -- 90 degrees clockwise rotation
-rot90 :: V2Double -> V2Double
+rot90 :: V2Sci -> V2Sci
 rot90 (x, y) = (-y, x)
 
-transformPtFunc :: Opts -> V2Double -> V2Double
+transformPtFunc :: Opts -> V2Sci -> V2Sci
 transformPtFunc opt =
   let translate (x, y) = (x + dx, y + dy)
       dx = oX opt
@@ -282,7 +300,7 @@ transformPtFunc opt =
        -- should have already been caught before this point
        _ -> error "rotation must be one of 0, 90, 180, or 270"
 
-transformRotFunc :: Opts -> Double -> Double
+transformRotFunc :: Opts -> Scientific -> Scientific
 transformRotFunc opt rot = rot + fromIntegral (oRot opt)
 
 itemsToStatements :: Opts -> String -> [PcbnewItem] -> [Statement ()]
@@ -328,8 +346,8 @@ footprintToFile opts pcb file = withFile file WriteMode $ \h -> do
 
 data Opts =
   Opts
-  { oX   :: Double
-  , oY   :: Double
+  { oX   :: Scientific
+  , oY   :: Scientific
   , oRot :: Int
   , oIn  :: String
   , oOut :: String
@@ -338,13 +356,13 @@ data Opts =
 opts :: Parser Opts
 opts = Opts <$> optX <*> optY <*> optRot <*> argIn <*> argOut
 
-optX :: Parser Double
+optX :: Parser Scientific
 optX = option auto (short 'x' <>
                     metavar "FLOAT" <>
                     help ("Amount to translate in X (default 0)") <>
                     value 0)
 
-optY :: Parser Double
+optY :: Parser Scientific
 optY = option auto (short 'y' <>
                     metavar "FLOAT" <>
                     help ("Amount to translate in Y (default 0)") <>
