@@ -58,8 +58,9 @@ tested-with:         GHC == 7.8.3
                    , GHC == 8.0.2
 
 source-repository head
-  Type:     git
-  Location: https://github.com/ppelleti/footprint-to-script.git
+  type:     git
+  location: https://github.com/ppelleti/footprint-to-script.git
+  subdir:   footprint-to-script
 
 
 executable footprint-to-script
