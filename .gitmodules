@@ -1,0 +1,3 @@
+[submodule "kicad-data"]
+	path = kicad-data
+	url = https://github.com/ppelleti/haskell-kicad-data.git
