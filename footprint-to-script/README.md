@@ -50,6 +50,12 @@ cabal install
 
 The binary will be installed in `~/.cabal/bin`.
 
+## License
+
+`footprint-to-script` and most of its dependencies are licensed under
+the 3-clause BSD license.  However, [one dependency][8] is GPL
+licensed.  Therefore, the GPL applies to the program as a whole.
+
 [1]: https://github.com/pointhi/kicad-footprint-generator
 [2]: http://kicad-pcb.org/
 [3]: https://www.python.org/
@@ -57,3 +63,4 @@ The binary will be installed in `~/.cabal/bin`.
 [5]: https://hackage.haskell.org/package/language-python
 [6]: https://docs.haskellstack.org/en/stable/README/#how-to-install
 [7]: https://www.haskell.org/platform/
+[8]: https://hackage.haskell.org/package/pretty-compact
