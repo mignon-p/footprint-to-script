@@ -24,6 +24,10 @@ To run, the Python script requires the [KicadModTree][1] library.
 Apologies for the long line length; this is a [known limitation][4] of
 [language-python][5].
 
+## Binary releases
+
+[Binaries are available][9] for Linux, Mac OS X, and Windows.
+
 ## Building from source (with stack)
 
 Install [stack][6] and then do:
@@ -64,3 +68,4 @@ licensed.  Therefore, the GPL applies to the program as a whole.
 [6]: https://docs.haskellstack.org/en/stable/README/#how-to-install
 [7]: https://www.haskell.org/platform/
 [8]: https://hackage.haskell.org/package/pretty-compact
+[9]: https://github.com/ppelleti/footprint-to-script/releases/tag/0.1.0.0
