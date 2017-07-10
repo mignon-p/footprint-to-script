@@ -43,6 +43,10 @@ maintainer:          code@funwithsoftware.org
 -- A copyright notice.
 copyright:           Copyright (c) 2017, Patrick Pelletier
 
+homepage:            https://github.com/ppelleti/footprint-to-script
+
+bug-reports:         https://github.com/ppelleti/footprint-to-script/issues
+
 category:            Development
 
 build-type:          Simple
