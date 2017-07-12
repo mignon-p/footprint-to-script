@@ -233,8 +233,8 @@ itemToStatement :: PcbnewItem -> VarState (Statement ())
 itemToStatement item@(PcbnewFpText {}) = do
   txt <- vbzTxt (fpTextStr item)
   at <- vbzXY (pcbnewAtPoint (itemAt item))
-  s <- vbz 't' $ dvect (itemSize item)
-  w <- vbz 'w' $ dflo (fpTextThickness item)
+  s <- vbz 's' $ dvect (itemSize item)
+  w <- vbz 't' $ dflo (fpTextThickness item)
   r <- optionalRot item
   apnd "Text" $ [ ( "type" , str (fpTextTypeToStr (fpTextType item)) )
                 , ( "text" , txt )
@@ -273,6 +273,8 @@ itemToStatement item@(PcbnewFpArc {}) = do
              , ( "width" , w )
              ]
 itemToStatement item@(PcbnewFpPoly {}) = do
+  -- This isn't correct.  KicadModTree doesn't seem to have support
+  -- for polygons.  ("PolygoneLine" is a polyline, not a polygon.)
   poly <- mapM vbzXY (fpPolyPts item)
   w <- vbz 'w' $ dflo (itemWidth item)
   apnd "PolygoneLine" [ ( "polygone" , List poly () )
