@@ -380,7 +380,8 @@ renumberGroup vars =
 renumberVariables :: [(Expr (), Variable)]
                   -> ([(Expr (), Variable)], [(String, Int)])
 renumberVariables vars =
-  let groups = groupBy (\(_, v1) (_, v2) -> vName v1 == vName v2) vars
+  let vars' = sortBy (comparing snd) vars
+      groups = groupBy (\(_, v1) (_, v2) -> vName v1 == vName v2) vars'
       (groups', digs) = unzip $ map renumberGroup groups
   in (concat groups', digs)
 
