@@ -229,6 +229,13 @@ vbzXY xy = do
   y' <- vbz "y" $ flo y
   return $ List [x', y'] ()
 
+vbzW :: PcbnewItem -> VarState (Expr ())
+vbzW item = do
+  let w = dflo (itemWidth item)
+      l = layerToStr (itemLayer item)
+      afterDot = drop 1 . dropWhile (/= '.')
+  vbz ('w' : afterDot l) w
+
 vbzTxt :: String -> VarState (Expr ())
 vbzTxt s = do
   st <- get
@@ -285,7 +292,7 @@ itemToStatement item@(PcbnewFpText {}) = do
 itemToStatement item@(PcbnewFpLine {}) = do
   start <- vbzXY (itemStart item)
   end <- vbzXY (itemEnd item)
-  w <- vbz "w" $ dflo (itemWidth item)
+  w <- vbzW item
   apnd "Line" [ ( "start" , start )
               , ( "end" , end )
               , ( "layer" , str (layerToStr (itemLayer item)) )
@@ -294,7 +301,7 @@ itemToStatement item@(PcbnewFpLine {}) = do
 itemToStatement item@(PcbnewFpCircle {}) = do
   center <- vbzXY (itemStart item)
   r <- vbz "r" $ dflo (pythag (itemStart item) (itemEnd item))
-  w <- vbz "w" $ dflo (itemWidth item)
+  w <- vbzW item
   apnd "Circle" [ ( "center" , center )
                 , ( "radius" , r )
                 , ( "layer" , str (layerToStr (itemLayer item)) )
@@ -303,7 +310,7 @@ itemToStatement item@(PcbnewFpCircle {}) = do
 itemToStatement item@(PcbnewFpArc {}) = do
   center <- vbzXY (itemStart item)
   start <- vbzXY (itemEnd item) -- not sure about this
-  w <- vbz "w" $ dflo (itemWidth item)
+  w <- vbzW item
   apnd "Arc" [ ( "center" , center )
              , ( "start" , start )
              , ( "angle" , dflo (fpArcAngle item) )
@@ -314,7 +321,7 @@ itemToStatement item@(PcbnewFpPoly {}) = do
   -- This isn't correct.  KicadModTree doesn't seem to have support
   -- for polygons.  ("PolygoneLine" is a polyline, not a polygon.)
   poly <- mapM vbzXY (fpPolyPts item)
-  w <- vbz "w" $ dflo (itemWidth item)
+  w <- vbzW item
   apnd "PolygoneLine" [ ( "polygone" , List poly () )
                       , ( "layer" , str (layerToStr (itemLayer item)) )
                       , ( "width" , w )
