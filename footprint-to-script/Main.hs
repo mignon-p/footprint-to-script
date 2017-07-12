@@ -102,6 +102,9 @@ vect (x, y) = List [ flo x, flo y ] ()
 dvect :: V2Double -> Expr ()
 dvect (x, y) = List [ dflo x, dflo y ] ()
 
+dvect3 :: PcbnewXyzT -> Expr ()
+dvect3 (x, y, z) = List [ dflo x, dflo y, dflo z ] ()
+
 boo :: Bool -> Expr ()
 boo b = Bool b ()
 
@@ -144,6 +147,12 @@ attrToStatement (PcbnewDescr s) =
   Just $ callMethSt footprintVar "setDescription" [str s]
 attrToStatement (PcbnewTags s) =
   Just $ callMethSt footprintVar "setTags" [str s]
+attrToStatement m@(PcbnewModel {}) =
+  Just $ apnd' "Model" $ [ ( "filename", str (pcbnewModelPath m) )
+                         , ( "at", dvect3 (pcbnewModelAt m) )
+                         , ( "scale", dvect3 (pcbnewModelScale m) )
+                         , ( "rotate", dvect3 (pcbnewModelRotate m) )
+                         ]
 attrToStatement _ = Nothing
 
 initialize :: PcbnewModule -> [Statement ()]
@@ -153,9 +162,12 @@ initialize pcb = assignments ++ mapMaybe attrToStatement (pcbnewModuleAttrs pcb)
           , assign footprintVar (call "Footprint" [(var "footprint_name")])
           ]
 
+apnd' :: String -> [(String, Expr ())] -> Statement ()
+apnd' constructor args =
+  callMethSt footprintVar "append" [callKW constructor args]
+
 apnd :: String -> [(String, Expr ())] -> VarState (Statement ())
-apnd constructor args =
-  return $ callMethSt footprintVar "append" [callKW constructor args]
+apnd constructor args = return $ apnd' constructor args
 
 pythag :: V2Double -> V2Double -> Double
 pythag (x1, y1) (x2, y2) = sqrt $ sci2dbl $ dx * dx + dy * dy
