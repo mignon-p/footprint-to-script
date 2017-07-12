@@ -9,6 +9,7 @@ import Data.Maybe
 import Data.Monoid ((<>))
 import Data.Ord
 import Data.Scientific
+import qualified Data.Text as T
 import Data.Version
 import Language.Python.Common hiding ((<>))
 import Options.Applicative hiding (str, style)
@@ -111,6 +112,9 @@ boo b = Bool b ()
 pad :: String -> Expr ()
 pad p = Dot (var "Pad") (Ident p ()) ()
 
+plus :: Expr () -> Expr () -> Expr ()
+plus l r = BinaryOp (Plus ()) l r ()
+
 call :: String -> [Expr ()] -> Expr ()
 call name args = Call (var name) (map ordinary args) ()
   where ordinary exp = ArgExpr exp ()
@@ -142,25 +146,36 @@ imports = [ FromImport fromModule fromItems () ]
     dotted = [ Ident "KicadModTree" () ]
     fromItems = ImportEverything ()
 
-attrToStatement :: PcbnewAttribute -> Maybe (Statement ())
-attrToStatement (PcbnewDescr s) =
+splitOn :: String -> String -> [String]
+splitOn d s = map T.unpack $ T.splitOn (T.pack d) (T.pack s)
+
+subst :: String -> String -> Expr ()
+subst name path =
+  let strs = map str $ splitOn name path
+      exprs = intersperse (var "footprint_name") strs
+  in foldl1' plus exprs
+
+attrToStatement :: String -> PcbnewAttribute -> Maybe (Statement ())
+attrToStatement _ (PcbnewDescr s) =
   Just $ callMethSt footprintVar "setDescription" [str s]
-attrToStatement (PcbnewTags s) =
+attrToStatement _ (PcbnewTags s) =
   Just $ callMethSt footprintVar "setTags" [str s]
-attrToStatement m@(PcbnewModel {}) =
-  Just $ apnd' "Model" $ [ ( "filename", str (pcbnewModelPath m) )
+attrToStatement name m@(PcbnewModel {}) =
+  Just $ apnd' "Model" $ [ ( "filename", subst name (pcbnewModelPath m) )
                          , ( "at", dvect3 (pcbnewModelAt m) )
                          , ( "scale", dvect3 (pcbnewModelScale m) )
                          , ( "rotate", dvect3 (pcbnewModelRotate m) )
                          ]
-attrToStatement _ = Nothing
+attrToStatement _ _ = Nothing
 
 initialize :: PcbnewModule -> [Statement ()]
-initialize pcb = assignments ++ mapMaybe attrToStatement (pcbnewModuleAttrs pcb)
+initialize pcb =
+  assignments ++ mapMaybe (attrToStatement name) (pcbnewModuleAttrs pcb)
   where assignments =
-          [ assign "footprint_name" (str (pcbnewModuleName pcb))
+          [ assign "footprint_name" (str name)
           , assign footprintVar (call "Footprint" [(var "footprint_name")])
           ]
+        name = pcbnewModuleName pcb
 
 apnd' :: String -> [(String, Expr ())] -> Statement ()
 apnd' constructor args =
@@ -345,7 +360,7 @@ output = [ assign asTo asExp, stmtExpr ]
     asExp = call "KicadFileHandler" callArgs
     callArgs = [ var footprintVar ]
     stmtExpr = callMethSt "file_handler" "writeFile" callArgs2
-    callArgs2 = [ BinaryOp (Plus ()) leftOpArg rightOpArg () ]
+    callArgs2 = [ leftOpArg `plus` rightOpArg ]
     leftOpArg = var "footprint_name"
     rightOpArg = str ".kicad_mod"
 
