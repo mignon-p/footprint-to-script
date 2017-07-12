@@ -377,14 +377,22 @@ renumberGroup vars =
       digs = ceiling $ logBase 10 $ fromIntegral num + 0.5
   in (renumbered, (name, if num == 1 then 0 else digs))
 
+sortAndGroup :: [(Expr (), Variable)] -> [[(Expr (), Variable)]]
+sortAndGroup vars =
+  let vars' = sortBy (comparing snd) vars
+  in groupBy (\(_, v1) (_, v2) -> vName v1 == vName v2) vars'
+
 renumberVariables :: [(Expr (), Variable)]
                   -> ([(Expr (), Variable)], [(String, Int)])
 renumberVariables vars =
-  let vars' = sortBy (comparing snd) vars
-      groups = groupBy (\(_, v1) (_, v2) -> vName v1 == vName v2) vars'
+  let groups = sortAndGroup vars
       (groups', digs) = unzip $ map renumberGroup groups
   in (concat groups', digs)
 
+-- We do one pass to discover all the variables, then we renumber
+-- the variables so that they are sorted by value, and then do the
+-- final pass with the new variable names.  This function does
+-- the renumbering and is called in between the "go" passes.
 renumber :: VarState ()
 renumber = do
   st <- get
@@ -393,14 +401,14 @@ renumber = do
   put st'
 
 itemsToStatements :: Opts -> String -> [PcbnewItem] -> [Statement ()]
-itemsToStatements opt modName items = assignVars vars' ++ [blankLine] ++ stmts
+itemsToStatements opt modName items = assignVars ++ [blankLine] ++ stmts
   where (stmts, MyState vars digs _ _ _) =
           runState (go >> renumber >> go) $ MyState [] [] modName tPt tRot
         tPt = transformPtFunc opt
         tRot = transformRotFunc opt
-        vars' = sortBy (comparing snd) vars
         go = mapM itemToStatement items
-        assignVars = map assignVar
+        groups = sortAndGroup vars
+        assignVars = intercalate [blankLine] $ map (map assignVar) groups
         assignVar (expr, v) =
           assign (vStr v $ fromMaybe 1 $ lookup (vName v) digs) expr
 
