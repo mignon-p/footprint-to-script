@@ -35,12 +35,15 @@ data Variable =
   , vNum :: Int
   } deriving (Eq, Ord)
 
-vStr :: Variable -> String
-vStr v = vName v ++ show (vNum v)
+vStr :: Variable -> Int -> String
+vStr v 0 = vName v
+vStr v digs = vName v ++ printf fmt (vNum v)
+  where fmt = "%0" ++ show digs ++ "v"
 
 data MyState =
   MyState
   { sVars :: [(Expr (), Variable)]
+  , sDigits :: [(String, Int)]
   , sModule :: String
   , sTransformPoint :: V2Sci -> V2Sci
   , sTransformRot :: Scientific -> Scientific
@@ -65,16 +68,18 @@ sci2dbl = toRealFloat
 -- an existing variable, or a new variable.
 variableize :: String
             -> Expr ()
+            -> [(String, Int)]
             -> [(Expr (), Variable)]
             -> (String, [(Expr (), Variable)])
-variableize c exp vars =
+variableize c exp digs vars =
   let relevant = filter (\(_,v) -> c == vName v) vars
       found = lookup exp relevant
       largest = maximum (0 : map (vNum . snd) relevant)
       next = Variable c (largest + 1)
+      nDigs = fromMaybe 1 $ lookup c digs
   in case found of
-    Just x -> (vStr x, vars)
-    Nothing -> (vStr next, (exp, next) : vars)
+    Just x -> (vStr x nDigs, vars)
+    Nothing -> (vStr next nDigs, (exp, next) : vars)
 
 -- A version of variableize that works in the VarState monad,
 -- to keep track of the variable definitions.
@@ -82,7 +87,8 @@ vbz :: String -> Expr () -> VarState (Expr ())
 vbz c exp = do
   st <- get
   let vars = sVars st
-      (name, vars') = variableize c exp vars
+      digs = sDigits st
+      (name, vars') = variableize c exp digs vars
       st' = st { sVars = vars' }
   put st'
   return (var name)
@@ -360,15 +366,42 @@ transformPtFunc opt =
 transformRotFunc :: Opts -> Scientific -> Scientific
 transformRotFunc opt rot = rot + fromIntegral (oRot opt)
 
+renumberGroup :: [(Expr (), Variable)]
+              -> ([(Expr (), Variable)], (String, Int))
+renumberGroup vars =
+  let sorted = sort vars
+      renumbered = zipWith renum sorted [1..]
+      renum (e, v) n = (e, Variable (vName v) n)
+      name = vName $ snd $ head renumbered
+      num = length renumbered
+      digs = ceiling $ logBase 10 $ fromIntegral num + 0.5
+  in (renumbered, (name, if num == 1 then 0 else digs))
+
+renumberVariables :: [(Expr (), Variable)]
+                  -> ([(Expr (), Variable)], [(String, Int)])
+renumberVariables vars =
+  let groups = groupBy (\(_, v1) (_, v2) -> vName v1 == vName v2) vars
+      (groups', digs) = unzip $ map renumberGroup groups
+  in (concat groups', digs)
+
+renumber :: VarState ()
+renumber = do
+  st <- get
+  let (vars, digs) = renumberVariables (sVars st)
+      st' = st { sVars = vars, sDigits = digs }
+  put st'
+
 itemsToStatements :: Opts -> String -> [PcbnewItem] -> [Statement ()]
 itemsToStatements opt modName items = assignVars vars' ++ [blankLine] ++ stmts
-  where (stmts, MyState vars _ _ _) = runState go $ MyState [] modName tPt tRot
+  where (stmts, MyState vars digs _ _ _) =
+          runState (go >> renumber >> go) $ MyState [] [] modName tPt tRot
         tPt = transformPtFunc opt
         tRot = transformRotFunc opt
         vars' = sortBy (comparing snd) vars
         go = mapM itemToStatement items
         assignVars = map assignVar
-        assignVar (expr, v) = assign (vStr v) expr
+        assignVar (expr, v) =
+          assign (vStr v $ fromMaybe 1 $ lookup (vName v) digs) expr
 
 output :: [Statement ()]
 output = [ assign asTo asExp, stmtExpr ]
