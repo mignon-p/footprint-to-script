@@ -22,6 +22,9 @@ import Text.Printf
 
 import Paths_footprint_to_script
 
+footprintVar :: String
+footprintVar = "f"
+
 data MyState =
   MyState
   { sVars :: [(Expr (), String)]
@@ -32,6 +35,8 @@ data MyState =
 
 type VarState = State MyState
 
+-- We try to do as much math as possible using Scientific, instead
+-- of Double, to avoid floating-point rounding error.
 type V2Sci = (Scientific, Scientific)
 
 dbl2sci :: Double -> Scientific
@@ -43,6 +48,8 @@ vdbl2sci (x, y) = (dbl2sci x, dbl2sci y)
 sci2dbl :: Scientific -> Double
 sci2dbl = toRealFloat
 
+-- Given an expression, return a variable name.  This may either be
+-- an existing variable, or a new variable.
 variableize :: Char
             -> Expr ()
             -> [(Expr (), String)]
@@ -57,6 +64,8 @@ variableize c exp vars =
     Just x -> (x, vars)
     Nothing -> (next, (exp, next) : vars)
 
+-- A version of variableize that works in the VarState monad,
+-- to keep track of the variable definitions.
 vbz :: Char -> Expr () -> VarState (Expr ())
 vbz c exp = do
   st <- get
@@ -74,6 +83,7 @@ escape s = concatMap e s
           | x < ' ' = printf "\\%03o" x
           | otherwise = [x]
 
+-- Some helpers for generating Python expressions and statements.
 var :: String -> Expr ()
 var s = Var (Ident s ()) ()
 
@@ -131,21 +141,21 @@ imports = [ FromImport fromModule fromItems () ]
 
 attrToStatement :: PcbnewAttribute -> Maybe (Statement ())
 attrToStatement (PcbnewDescr s) =
-  Just $ callMethSt "kicad_mod" "setDescription" [str s]
+  Just $ callMethSt footprintVar "setDescription" [str s]
 attrToStatement (PcbnewTags s) =
-  Just $ callMethSt "kicad_mod" "setTags" [str s]
+  Just $ callMethSt footprintVar "setTags" [str s]
 attrToStatement _ = Nothing
 
 initialize :: PcbnewModule -> [Statement ()]
 initialize pcb = assignments ++ mapMaybe attrToStatement (pcbnewModuleAttrs pcb)
   where assignments =
           [ assign "footprint_name" (str (pcbnewModuleName pcb))
-          , assign "kicad_mod" (call "Footprint" [(var "footprint_name")])
+          , assign footprintVar (call "Footprint" [(var "footprint_name")])
           ]
 
 apnd :: String -> [(String, Expr ())] -> VarState (Statement ())
 apnd constructor args =
-  return $ callMethSt "kicad_mod" "append" [callKW constructor args]
+  return $ callMethSt footprintVar "append" [callKW constructor args]
 
 pythag :: V2Double -> V2Double -> Double
 pythag (x1, y1) (x2, y2) = sqrt $ sci2dbl $ dx * dx + dy * dy
@@ -319,7 +329,7 @@ output = [ assign asTo asExp, stmtExpr ]
   where
     asTo = "file_handler"
     asExp = call "KicadFileHandler" callArgs
-    callArgs = [ var "kicad_mod" ]
+    callArgs = [ var footprintVar ]
     stmtExpr = callMethSt "file_handler" "writeFile" callArgs2
     callArgs2 = [ BinaryOp (Plus ()) leftOpArg rightOpArg () ]
     leftOpArg = var "footprint_name"
@@ -343,6 +353,8 @@ footprintToFile opts pcb file = withFile file WriteMode $ \h -> do
   hPutStrLn h "#!/usr/bin/env python3"
   hPutStrLn h ""
   hPutStrLn h $ footprintToStr opts pcb
+
+-- command-line argument parsing
 
 data Opts =
   Opts
