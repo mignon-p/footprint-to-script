@@ -26,6 +26,9 @@ import Paths_footprint_to_script
 footprintVar :: String
 footprintVar = "f"
 
+footprintNameVar :: String
+footprintNameVar = "footprint_name"
+
 data MyState =
   MyState
   { sVars :: [(Expr (), String)]
@@ -152,7 +155,7 @@ splitOn d s = map T.unpack $ T.splitOn (T.pack d) (T.pack s)
 subst :: String -> String -> Expr ()
 subst name path =
   let strs = map str $ splitOn name path
-      exprs = intersperse (var "footprint_name") strs
+      exprs = intersperse (var footprintNameVar) strs
   in foldl1' plus exprs
 
 attrToStatement :: String -> PcbnewAttribute -> Maybe (Statement ())
@@ -172,8 +175,8 @@ initialize :: PcbnewModule -> [Statement ()]
 initialize pcb =
   assignments ++ mapMaybe (attrToStatement name) (pcbnewModuleAttrs pcb)
   where assignments =
-          [ assign "footprint_name" (str name)
-          , assign footprintVar (call "Footprint" [(var "footprint_name")])
+          [ assign footprintNameVar (str name)
+          , assign footprintVar (call "Footprint" [(var footprintNameVar)])
           ]
         name = pcbnewModuleName pcb
 
@@ -223,7 +226,7 @@ vbzTxt s = do
   st <- get
   let modName = sModule st
   if s == modName
-    then return (var "footprint_name")
+    then return (var footprintNameVar)
     else return (str s)
 
 pType :: PcbnewPadTypeT -> Expr ()
@@ -361,7 +364,7 @@ output = [ assign asTo asExp, stmtExpr ]
     callArgs = [ var footprintVar ]
     stmtExpr = callMethSt "file_handler" "writeFile" callArgs2
     callArgs2 = [ leftOpArg `plus` rightOpArg ]
-    leftOpArg = var "footprint_name"
+    leftOpArg = var footprintNameVar
     rightOpArg = str ".kicad_mod"
 
 footprintToModule :: Opts -> PcbnewModule -> Module ()
