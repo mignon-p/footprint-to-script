@@ -29,9 +29,18 @@ footprintVar = "f"
 footprintNameVar :: String
 footprintNameVar = "footprint_name"
 
+data Variable =
+  Variable
+  { vName :: String
+  , vNum :: Int
+  } deriving (Eq, Ord)
+
+vStr :: Variable -> String
+vStr v = vName v ++ show (vNum v)
+
 data MyState =
   MyState
-  { sVars :: [(Expr (), String)]
+  { sVars :: [(Expr (), Variable)]
   , sModule :: String
   , sTransformPoint :: V2Sci -> V2Sci
   , sTransformRot :: Scientific -> Scientific
@@ -54,23 +63,22 @@ sci2dbl = toRealFloat
 
 -- Given an expression, return a variable name.  This may either be
 -- an existing variable, or a new variable.
-variableize :: Char
+variableize :: String
             -> Expr ()
-            -> [(Expr (), String)]
-            -> (String, [(Expr (), String)])
+            -> [(Expr (), Variable)]
+            -> (String, [(Expr (), Variable)])
 variableize c exp vars =
-  let relevant = filter (\(_,x:_) -> c == x) vars
+  let relevant = filter (\(_,v) -> c == vName v) vars
       found = lookup exp relevant
-      largest = maximum (0 : map toNum relevant)
-      toNum (_, _:s) = read s :: Int
-      next = c : show (largest + 1)
+      largest = maximum (0 : map (vNum . snd) relevant)
+      next = Variable c (largest + 1)
   in case found of
-    Just x -> (x, vars)
-    Nothing -> (next, (exp, next) : vars)
+    Just x -> (vStr x, vars)
+    Nothing -> (vStr next, (exp, next) : vars)
 
 -- A version of variableize that works in the VarState monad,
 -- to keep track of the variable definitions.
-vbz :: Char -> Expr () -> VarState (Expr ())
+vbz :: String -> Expr () -> VarState (Expr ())
 vbz c exp = do
   st <- get
   let vars = sVars st
@@ -197,7 +205,7 @@ attrToPair (PcbnewDrill drill) = do
   case pcbnewDrillSize drill of
     Nothing -> return Nothing
     Just v -> do
-      d <- vbz 'd' (dvect v)
+      d <- vbz "d" (dvect v)
       return $ Just ("drill", d)
 attrToPair (PcbnewOffset off) = return $ Just ("offset", dvect off)
 attrToPair (PcbnewSolderPasteRatio rat) =
@@ -217,8 +225,8 @@ transformRot r = do
 vbzXY :: V2Double -> VarState (Expr ())
 vbzXY xy = do
   (x, y) <- transformXY $ vdbl2sci xy
-  x' <- vbz 'x' $ flo x
-  y' <- vbz 'y' $ flo y
+  x' <- vbz "x" $ flo x
+  y' <- vbz "y" $ flo y
   return $ List [x', y'] ()
 
 vbzTxt :: String -> VarState (Expr ())
@@ -263,8 +271,8 @@ itemToStatement :: PcbnewItem -> VarState (Statement ())
 itemToStatement item@(PcbnewFpText {}) = do
   txt <- vbzTxt (fpTextStr item)
   at <- vbzXY (pcbnewAtPoint (itemAt item))
-  s <- vbz 's' $ dvect (itemSize item)
-  w <- vbz 't' $ dflo (fpTextThickness item)
+  s <- vbz "s" $ dvect (itemSize item)
+  w <- vbz "t" $ dflo (fpTextThickness item)
   r <- optionalRot item
   apnd "Text" $ [ ( "type" , str (fpTextTypeToStr (fpTextType item)) )
                 , ( "text" , txt )
@@ -277,7 +285,7 @@ itemToStatement item@(PcbnewFpText {}) = do
 itemToStatement item@(PcbnewFpLine {}) = do
   start <- vbzXY (itemStart item)
   end <- vbzXY (itemEnd item)
-  w <- vbz 'w' $ dflo (itemWidth item)
+  w <- vbz "w" $ dflo (itemWidth item)
   apnd "Line" [ ( "start" , start )
               , ( "end" , end )
               , ( "layer" , str (layerToStr (itemLayer item)) )
@@ -285,8 +293,8 @@ itemToStatement item@(PcbnewFpLine {}) = do
               ]
 itemToStatement item@(PcbnewFpCircle {}) = do
   center <- vbzXY (itemStart item)
-  r <- vbz 'r' $ dflo (pythag (itemStart item) (itemEnd item))
-  w <- vbz 'w' $ dflo (itemWidth item)
+  r <- vbz "r" $ dflo (pythag (itemStart item) (itemEnd item))
+  w <- vbz "w" $ dflo (itemWidth item)
   apnd "Circle" [ ( "center" , center )
                 , ( "radius" , r )
                 , ( "layer" , str (layerToStr (itemLayer item)) )
@@ -295,7 +303,7 @@ itemToStatement item@(PcbnewFpCircle {}) = do
 itemToStatement item@(PcbnewFpArc {}) = do
   center <- vbzXY (itemStart item)
   start <- vbzXY (itemEnd item) -- not sure about this
-  w <- vbz 'w' $ dflo (itemWidth item)
+  w <- vbz "w" $ dflo (itemWidth item)
   apnd "Arc" [ ( "center" , center )
              , ( "start" , start )
              , ( "angle" , dflo (fpArcAngle item) )
@@ -306,14 +314,14 @@ itemToStatement item@(PcbnewFpPoly {}) = do
   -- This isn't correct.  KicadModTree doesn't seem to have support
   -- for polygons.  ("PolygoneLine" is a polyline, not a polygon.)
   poly <- mapM vbzXY (fpPolyPts item)
-  w <- vbz 'w' $ dflo (itemWidth item)
+  w <- vbz "w" $ dflo (itemWidth item)
   apnd "PolygoneLine" [ ( "polygone" , List poly () )
                       , ( "layer" , str (layerToStr (itemLayer item)) )
                       , ( "width" , w )
                       ]
 itemToStatement item@(PcbnewPad {}) = do
   at <- vbzXY (pcbnewAtPoint (itemAt item))
-  s <- vbz 'p' $ dvect (itemSize item)
+  s <- vbz "p" $ dvect (itemSize item)
   attrs <- mapM attrToPair (padAttributes_ item)
   r <- optionalRot item
   apnd "Pad" $ [ ( "number" , str (padNumber item) )
@@ -350,11 +358,10 @@ itemsToStatements opt modName items = assignVars vars' ++ [blankLine] ++ stmts
   where (stmts, MyState vars _ _ _) = runState go $ MyState [] modName tPt tRot
         tPt = transformPtFunc opt
         tRot = transformRotFunc opt
-        vars' = sortBy (comparing cmp) vars
+        vars' = sortBy (comparing snd) vars
         go = mapM itemToStatement items
         assignVars = map assignVar
-        assignVar (expr, name) = assign name expr
-        cmp (_, c:n) = (c, read n :: Int)
+        assignVar (expr, v) = assign (vStr v) expr
 
 output :: [Statement ()]
 output = [ assign asTo asExp, stmtExpr ]
