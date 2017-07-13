@@ -28,6 +28,13 @@ data MyItem = Other
               { iSeq :: Int
               , iOther :: PcbnewItem
               }
+            | Rectangle
+              { iSeq :: Int
+              , iCorner1 :: V2Sci
+              , iCorner2 :: V2Sci
+              , iLayer :: PcbnewLayerT
+              , iWidth :: Scientific
+              }
             | Polyline
               { iSeq :: Int
               , iPoints :: [V2Sci]
@@ -58,7 +65,18 @@ isPolyline _ = False
 joinLines :: [MyItem] -> [MyItem]
 joinLines items = sortBy (comparing iSeq) (others ++ ls')
   where (ls, others) = partition isPolyline items
-        ls' = map eliminateRedundantVertices $ joinLines1 ls
+        ls' = map (identifyRect . eliminateRedundantVertices) $ joinLines1 ls
+
+-- Input must be Polyline.  Output is Polyline or Rectangle.
+identifyRect :: MyItem -> MyItem
+identifyRect item@(Polyline { iPoints = [ p1@(x1, y1)
+                                        , (x2, y2)
+                                        , (x3, y3)
+                                        , (x4, y4)
+                                        , p5 ] })
+  | p1 == p5 && x1 /= x3 && y1 /= y3 &&
+    length (nub [x1, x2, x3, x4]) == 2 &&
+    length (nub [y1, y2, y3, y4]) == 2
 
 -- Input and output are Polylines.
 eliminateRedundantVertices :: MyItem -> MyItem
