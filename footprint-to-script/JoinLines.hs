@@ -65,7 +65,7 @@ eliminateRedundantVertices :: MyItem -> MyItem
 eliminateRedundantVertices item = item { iPoints = erv (iPoints item) }
   where erv (p1:p2:p3:rest) =
           if colinear p1 p2 p3
-          then p1 : erv (p3:rest)
+          then erv (p1:p3:rest)
           else p1 : erv (p2:p3:rest)
         erv pts = pts
 
