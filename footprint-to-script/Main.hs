@@ -21,9 +21,8 @@ import System.IO
 import Text.PrettyPrint hiding ((<>))
 import Text.Printf
 
+import JoinLines
 import Paths_footprint_to_script
-
-import qualified JoinLines as J
 
 footprintVar :: String
 footprintVar = "f"
@@ -55,14 +54,6 @@ type VarState = State MyState
 
 -- We try to do as much math as possible using Scientific, instead
 -- of Double, to avoid floating-point rounding error.
-type V2Sci = (Scientific, Scientific)
-
-dbl2sci :: Double -> Scientific
-dbl2sci = read . show
-
-vdbl2sci :: V2Double -> V2Sci
-vdbl2sci (x, y) = (dbl2sci x, dbl2sci y)
-
 sci2dbl :: Scientific -> Double
 sci2dbl = toRealFloat
 
@@ -231,17 +222,28 @@ transformRot r = do
   return $ sTransformRot st r
 
 vbzXY :: V2Double -> VarState (Expr ())
-vbzXY xy = do
-  (x, y) <- transformXY $ vdbl2sci xy
+vbzXY = vbzXY' . vdbl2sci
+
+vbzXY' :: V2Sci -> VarState (Expr ())
+vbzXY' xy = do
+  (x, y) <- transformXY xy
   x' <- vbz "x" $ flo x
   y' <- vbz "y" $ flo y
   return $ List [x', y'] ()
+
+afterDot :: String -> String
+afterDot = drop 1 . dropWhile (/= '.')
 
 vbzW :: PcbnewItem -> VarState (Expr ())
 vbzW item = do
   let w = dflo (itemWidth item)
       l = layerToStr (itemLayer item)
-      afterDot = drop 1 . dropWhile (/= '.')
+  vbz ('w' : afterDot l) w
+
+vbzW' :: MyItem -> VarState (Expr ())
+vbzW' item = do
+  let w = flo (iWidth item)
+      l = layerToStr (iLayer item)
   vbz ('w' : afterDot l) w
 
 vbzTxt :: String -> VarState (Expr ())
@@ -282,8 +284,8 @@ optionalRot item = do
   r <- transformRot $ dbl2sci $ pcbnewAtOrientation $ itemAt item
   return $ optionalArg "rotation" (flo r) (flo 0)
 
-itemToStatement :: PcbnewItem -> VarState (Statement ())
-itemToStatement item@(PcbnewFpText {}) = do
+itemToStatement :: MyItem -> VarState (Statement ())
+itemToStatement (Other _ item@(PcbnewFpText {})) = do
   txt <- vbzTxt (fpTextStr item)
   at <- vbzXY (pcbnewAtPoint (itemAt item))
   s <- vbz "s" $ dvect (itemSize item)
@@ -297,16 +299,21 @@ itemToStatement item@(PcbnewFpText {}) = do
                 , ( "size" , s )
                 , ( "thickness" , w )
                 ] ++ optionalArg "hide" (boo (fpTextHide item)) (boo False)
-itemToStatement item@(PcbnewFpLine {}) = do
-  start <- vbzXY (itemStart item)
-  end <- vbzXY (itemEnd item)
-  w <- vbzW item
-  apnd "Line" [ ( "start" , start )
-              , ( "end" , end )
-              , ( "layer" , str (layerToStr (itemLayer item)) )
-              , ( "width" , w )
-              ]
-itemToStatement item@(PcbnewFpCircle {}) = do
+itemToStatement item@(Polyline {}) = do
+  pts <- mapM vbzXY' (iPoints item)
+  w <- vbzW' item
+  let lyr = str (layerToStr (iLayer item))
+  if length pts == 2
+    then apnd "Line" [ ( "start" , head pts )
+                     , ( "end" , last pts )
+                     , ( "layer" , lyr )
+                     , ( "width" , w )
+                     ]
+    else apnd "PolygoneLine" [ ( "polygone" , List pts () )
+                             , ( "layer" , lyr )
+                             , ( "width" , w )
+                             ]
+itemToStatement (Other _ item@(PcbnewFpCircle {})) = do
   center <- vbzXY (itemStart item)
   r <- vbz "r" $ dflo (pythag (itemStart item) (itemEnd item))
   w <- vbzW item
@@ -315,7 +322,7 @@ itemToStatement item@(PcbnewFpCircle {}) = do
                 , ( "layer" , str (layerToStr (itemLayer item)) )
                 , ( "width" , w )
                 ]
-itemToStatement item@(PcbnewFpArc {}) = do
+itemToStatement (Other _ item@(PcbnewFpArc {})) = do
   center <- vbzXY (itemStart item)
   start <- vbzXY (itemEnd item) -- not sure about this
   w <- vbzW item
@@ -325,7 +332,7 @@ itemToStatement item@(PcbnewFpArc {}) = do
              , ( "layer" , str (layerToStr (itemLayer item)) )
              , ( "width" , w )
              ]
-itemToStatement item@(PcbnewFpPoly {}) = do
+itemToStatement (Other _ item@(PcbnewFpPoly {})) = do
   -- This isn't correct.  KicadModTree doesn't seem to have support
   -- for polygons.  ("PolygoneLine" is a polyline, not a polygon.)
   poly <- mapM vbzXY (fpPolyPts item)
@@ -334,7 +341,7 @@ itemToStatement item@(PcbnewFpPoly {}) = do
                       , ( "layer" , str (layerToStr (itemLayer item)) )
                       , ( "width" , w )
                       ]
-itemToStatement item@(PcbnewPad {}) = do
+itemToStatement (Other _ item@(PcbnewPad {})) = do
   at <- vbzXY (pcbnewAtPoint (itemAt item))
   s <- vbz "p" $ dvect (itemSize item)
   attrs <- mapM attrToPair (padAttributes_ item)
@@ -408,7 +415,7 @@ itemsToStatements opt modName items = assignVars ++ [blankLine] ++ stmts
           runState (go >> renumber >> go) $ MyState [] [] modName tPt tRot
         tPt = transformPtFunc opt
         tRot = transformRotFunc opt
-        go = mapM itemToStatement items
+        go = mapM itemToStatement $ joinLines $ convertLines items
         groups = sortAndGroup vars
         assignVars = intercalate [blankLine] $ map (map assignVar) groups
         assignVar (expr, v) =
