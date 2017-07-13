@@ -58,13 +58,19 @@ isPolyline _ = False
 joinLines :: [MyItem] -> [MyItem]
 joinLines items = sortBy (comparing iSeq) (others ++ ls')
   where (ls, others) = partition isPolyline items
-        ls' = joinLines' ls
+        ls' = joinLines1 ls
 
 type ItemMap = M.Map V2Sci [MyItem]
 
 -- The inputs and outputs of this function are all Polylines,
 -- although Haskell's type system doesn't have a way to
 -- express that.
+joinLines1 :: [MyItem] -> [MyItem]
+joinLines1 = concatMap joinLines' . groupBy grp . sortBy (comparing f)
+  where grp i1 i2 = f i1 == f i2
+        f item = (layerToStr (iLayer item), iWidth item)
+
+-- These MyItems are all Polylines
 joinLines' :: [MyItem] -> [MyItem]
 joinLines' = flattenItemMap . processItemMap . makeItemMap
 
