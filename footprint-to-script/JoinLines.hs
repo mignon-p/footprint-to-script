@@ -70,19 +70,20 @@ joinLines' = flattenItemMap . processItemMap . makeItemMap
 
 -- These MyItems are all Polylines
 makeItemMap :: [MyItem] -> ItemMap
-makeItemMap items = M.fromList $ concatMap f items
-  where f item = [ (head $ iPoints item, item)
-                 , (last $ iPoints item, item)
-                 ]
+makeItemMap items = execState go M.empty
+  where go = mapM_ f items
+        f item = do
+          addItem (head $ iPoints item) item
+          addItem (last $ iPoints item) item
 
 -- These MyItems are all Polylines
 processItemMap :: ItemMap -> ItemMap
 processItemMap m = execState go m
-  where go = mapM_ processPoint (keys m)
+  where go = mapM_ processPoint (M.keys m)
 
 -- These MyItems are all Polylines
 flattenItemMap :: ItemMap -> [MyItem]
-flattenItemMap m = M.elems $ foldr f M.empty $ M.elems m
+flattenItemMap m = M.elems $ foldr f M.empty $ concat $ M.elems m
   where f item m' = M.insert (iSeq item) item m'
 
 type IState = State ItemMap
@@ -115,12 +116,14 @@ removeItem key item = do
   put m'
 
 processPoint :: V2Sci -> IState ()
-processPoint pt = getPoint pt >>= processItems pt
+processPoint pt = do
+  items <- getPoint pt
+  processItems items pt
 
 processItems :: [MyItem] -> V2Sci -> IState ()
 processItems [] _ = return ()
 processItems [_] _ = return ()
-processItems (i1:i2:rest) pt = joinItems i1 i2 pt >> processItems rest
+processItems (i1:i2:rest) pt = joinItems i1 i2 pt >> processItems rest pt
 
 joinItems :: MyItem -> MyItem -> V2Sci -> IState ()
 joinItems i1 i2 pt = do
