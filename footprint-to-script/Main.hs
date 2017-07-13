@@ -102,7 +102,7 @@ str :: String -> Expr ()
 str s = Strings ["\"", escape s, "\""] ()
 
 flo :: Scientific -> Expr ()
-flo x = Float (sci2dbl x) (show x) ()
+flo x = Float (sci2dbl x) (formatScientific Fixed Nothing x) ()
 
 dflo :: Double -> Expr ()
 dflo x = Float x (printf "%f" x) ()
