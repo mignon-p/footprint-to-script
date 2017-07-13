@@ -313,6 +313,16 @@ itemToStatement item@(Polyline {}) = do
                              , ( "layer" , lyr )
                              , ( "width" , w )
                              ]
+itemToStatement item@(Rectangle {}) = do
+  c1 <- vbzXY' (iCorner1 item)
+  c2 <- vbzXY' (iCorner2 item)
+  w <- vbzW' item
+  let lyr = str (layerToStr (iLayer item))
+  apnd "RectLine" [ ( "start" , c1 )
+                  , ( "end" , c2 )
+                  , ( "layer" , lyr )
+                  , ( "width" , w )
+                  ]
 itemToStatement (Other _ item@(PcbnewFpCircle {})) = do
   center <- vbzXY (itemStart item)
   r <- vbz "r" $ dflo (pythag (itemStart item) (itemEnd item))

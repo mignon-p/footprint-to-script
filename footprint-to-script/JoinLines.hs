@@ -71,12 +71,21 @@ joinLines items = sortBy (comparing iSeq) (others ++ ls')
 identifyRect :: MyItem -> MyItem
 identifyRect item@(Polyline { iPoints = [ p1@(x1, y1)
                                         , (x2, y2)
-                                        , (x3, y3)
+                                        , p3@(x3, y3)
                                         , (x4, y4)
                                         , p5 ] })
   | p1 == p5 && x1 /= x3 && y1 /= y3 &&
-    length (nub [x1, x2, x3, x4]) == 2 &&
-    length (nub [y1, y2, y3, y4]) == 2
+    sort [x1, x2, x3, x4] == sort [x1, x1, x3, x3] &&
+    sort [y1, y2, y3, y4] == sort [y1, y1, y3, y3] =
+    Rectangle
+    { iSeq = iSeq item
+    , iCorner1 = p1
+    , iCorner2 = p3
+    , iLayer = iLayer item
+    , iWidth = iWidth item
+    }
+  | otherwise = item
+identifyRect item = item
 
 -- Input and output are Polylines.
 eliminateRedundantVertices :: MyItem -> MyItem
