@@ -58,7 +58,24 @@ isPolyline _ = False
 joinLines :: [MyItem] -> [MyItem]
 joinLines items = sortBy (comparing iSeq) (others ++ ls')
   where (ls, others) = partition isPolyline items
-        ls' = joinLines1 ls
+        ls' = map eliminateRedundantVertices $ joinLines1 ls
+
+-- Input and output are Polylines.
+eliminateRedundantVertices :: MyItem -> MyItem
+eliminateRedundantVertices item = item { iPoints = erv (iPoints item) }
+  where erv (p1:p2:p3:rest) =
+          if colinear p1 p2 p3
+          then p1 : erv (p3:rest)
+          else p1 : erv (p2:p3:rest)
+        erv pts = pts
+
+colinear :: V2Sci -> V2Sci -> V2Sci -> Bool
+colinear p1@(x1, y1) p2@(x2, y2) p3@(x3, y3) =
+  colin p1 p2 p3 || colin (y1, x1) (y2, x2) (y3, x3)
+
+colin :: V2Sci -> V2Sci -> V2Sci -> Bool
+colin (x1, y1) (x2, y2) (x3, y3) =
+  x1 == x2 && x2 == x3 && ((y1 <= y2 && y2 <= y3) || (y1 >= y2 && y2 >= y3))
 
 type ItemMap = M.Map V2Sci [MyItem]
 
@@ -70,7 +87,9 @@ joinLines1 = concatMap joinLines' . groupBy grp . sortBy (comparing f)
   where grp i1 i2 = f i1 == f i2
         f item = (layerToStr (iLayer item), iWidth item)
 
--- These MyItems are all Polylines
+-- These MyItems are all Polylines.
+-- This function assumes all the Polylines have the same width
+-- and layer.
 joinLines' :: [MyItem] -> [MyItem]
 joinLines' = flattenItemMap . processItemMap . makeItemMap
 

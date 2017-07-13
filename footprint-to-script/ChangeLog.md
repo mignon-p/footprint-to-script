@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+* Eliminate redundant vertices.  (i. e. two segments which can be
+  replaced with one segment)
+
 * Join line segments into polylines.
 
 * Sort coordinates, so that x1 is the leftmost and y1 is the topmost.
