@@ -23,6 +23,8 @@ import Text.Printf
 
 import Paths_footprint_to_script
 
+import qualified JoinLines as J
+
 footprintVar :: String
 footprintVar = "f"
 
