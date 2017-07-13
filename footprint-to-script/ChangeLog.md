@@ -1,6 +1,6 @@
 # Revision history for kitool
 
-## Unreleased
+## 0.1.0.1  -- 2017-07-13
 
 * Eliminate redundant vertices.  (i. e. two segments which can be
   replaced with one segment)
