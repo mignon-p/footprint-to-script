@@ -160,8 +160,8 @@ combineLines i1 i2 pt =
       pts2 = iPoints i2
       pt1a = head pts1
       pt1b = last pts1
-      pt2a = head pts1
-      pt2b = last pts1
+      pt2a = head pts2
+      pt2b = last pts2
       (pts1', pts2') =
         if | pt1a == pt && pt2a == pt -> (reverse pts1, pts2)
            | pt1a == pt && pt2b == pt -> (pts2, pts1)

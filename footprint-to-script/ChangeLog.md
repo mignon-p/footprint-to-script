@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+* Join line segments into polylines.
+
 * Sort coordinates, so that x1 is the leftmost and y1 is the topmost.
 
 * Propagate 3D model name from footprint to script.
